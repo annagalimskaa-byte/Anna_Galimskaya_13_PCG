@@ -1,1 +1,0 @@
-([('ColorLab', '/Users/anna/Desktop/color_lab/dist/ColorLab', 'EXECUTABLE')],)
