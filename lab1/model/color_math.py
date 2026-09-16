@@ -1,49 +1,6 @@
-"""
-model/color_math.py
-====================
 
-Pure math for RGB, CMYK and HLS (your variant, 6: CMYK ++ RGB ++ HLS),
-plus XYZ and Lab (required separately by subgroup-10A addition #2,
-regardless of variant - it names XYZ/Lab specifically, with an
-illuminant choice and matrices that are never hardcoded).
-
-The RGB<->CMYK formulas below match the reference sheet exactly:
-    K = min(1-R/255, 1-G/255, 1-B/255)
-    C = (1-R/255-K) / (1-K)      (and similarly M, Y)
-    R = 255*(1-C)*(1-K)          (and similarly G, B)
-That division-based formula is what "GCR" means in this file - it always
-removes the FULL amount of ink the three colors have in common. "UCR"
-below is a second, alternative rule that only removes that shared
-amount once a color is already dark - the assignment asks you to be
-able to pick between the two.
-
-The HLS<->RGB formulas match the provided block diagram (the one using
-M1, M2 and a small Value() helper).
-
-Nothing here imports Tkinter, and nothing here imports an external
-color-conversion library - only plain arithmetic.
-"""
-
-
-# ---------------------------------------------------------------------
-# Keeping every typed/dragged value inside its valid range
-# ---------------------------------------------------------------------
 def constrain(values, ranges, mode="clip"):
-    """
-    values: a tuple/list of numbers, e.g. (r, g, b) or (c, m, y, k)
-    ranges: a matching list of (min, max) pairs for each of those numbers
-    mode:
-      "clip"  -> push each number back inside its own range independently
-                 (300 becomes 255, -10 becomes 0), same as the task's
-                 "270 turns into 255" example.
-      "scale" -> find how far over its limit the WORST offender is, and
-                 shrink every number in the group by that same ratio -
-                 this keeps the numbers' proportions relative to each
-                 other, instead of just chopping the worst one off.
 
-    Returns (new_values, was_changed) so the caller can show an
-    unobtrusive warning when was_changed is True.
-    """
     values = list(values)
 
     if mode == "scale":
@@ -58,26 +15,9 @@ def constrain(values, ranges, mode="clip"):
     return result, changed
 
 
-# ---------------------------------------------------------------------
-# RGB <-> CMYK
-# ---------------------------------------------------------------------
+
 def rgb_to_cmyk(r, g, b, method="GCR"):
-    """
-    First turn RGB into plain CMY "how much ink" values, then decide how
-    much of that ink to replace with pure black (K):
 
-      GCR (Gray Component Replacement) - the reference-sheet formula:
-      K is the full amount C, M and Y have in common, and it is removed
-      from all three, at every brightness level.
-
-      UCR (Under Color Removal): only pulls black out once a color is
-      already past the halfway point into shadow, and only the excess
-      past that halfway point - lighter colors stay pure C/M/Y.
-
-    Both are valid ways to represent the exact same RGB color - that's
-    the whole point of having a choice: cmyk_to_rgb() below turns
-    either one back into exactly the same RGB.
-    """
     c = 1 - r / 255.0
     m = 1 - g / 255.0
     y = 1 - b / 255.0
@@ -100,11 +40,7 @@ def rgb_to_cmyk(r, g, b, method="GCR"):
 
 
 def cmyk_to_rgb(c, m, y, k):
-    """
-    The reference-sheet formula, run backwards. Given C/M/Y/K already
-    inside their proper 0-100 range, this always lands inside 0-255 -
-    no clipping needed inside the math itself.
-    """
+
     c, m, y, k = c / 100.0, m / 100.0, y / 100.0, k / 100.0
     r = 255 * (1 - c) * (1 - k)
     g = 255 * (1 - m) * (1 - k)
@@ -112,9 +48,7 @@ def cmyk_to_rgb(c, m, y, k):
     return r, g, b
 
 
-# ---------------------------------------------------------------------
-# RGB <-> HLS
-# ---------------------------------------------------------------------
+
 def rgb_to_hls(r, g, b):
     r, g, b = r / 255.0, g / 255.0, b / 255.0
     mx, mn = max(r, g, b), min(r, g, b)
@@ -137,7 +71,7 @@ def rgb_to_hls(r, g, b):
 
 
 def _hls_value(hue, m1, m2):
-    """The Value() helper from the HLS->RGB block diagram."""
+
     hue = hue % 360
     if hue < 60:
         return m1 + (m2 - m1) * hue / 60
@@ -149,9 +83,7 @@ def _hls_value(hue, m1, m2):
 
 
 def hls_to_rgb(h, l, s):
-    """Follows the block diagram exactly: compute M2 from L and S, then
-    M1 from L and M2, then read R, G, B off the Value() helper 120
-    degrees apart."""
+
     l, s = l / 100.0, s / 100.0
 
     if s == 0:
@@ -166,19 +98,14 @@ def hls_to_rgb(h, l, s):
     return r * 255, g * 255, b * 255
 
 
-# ---------------------------------------------------------------------
-# RGB <-> XYZ <-> Lab (subgroup-10A addition #2 - illuminant-aware,
-# no hardcoded matrix)
-# ---------------------------------------------------------------------
+
 ILLUMINANTS = {
-    "D65": (95.047, 100.000, 108.883),   # medium daylight - standard for screens/sRGB
-    "D50": (96.422, 100.000, 82.521),    # warm daylight - standard for print
-    "E":   (100.000, 100.000, 100.000),  # equal-energy - a "perfectly flat" theoretical light
+    "D65": (95.047, 100.000, 108.883),
+    "D50": (96.422, 100.000, 82.521),
+    "E":   (100.000, 100.000, 100.000),
 }
 
-# The exact shade of "red"/"green"/"blue" an sRGB screen uses, as CIE xy
-# chromaticity coordinates. Fixed by the sRGB standard; only the white
-# point above changes with the chosen illuminant.
+
 _SRGB_PRIMARIES_XY = {"R": (0.6400, 0.3300), "G": (0.3000, 0.6000), "B": (0.1500, 0.0600)}
 
 
@@ -204,12 +131,7 @@ def _matinv(m):
 
 
 def rgb_to_xyz_matrix(white_point):
-    """
-    Build the RGB -> XYZ matrix from scratch for the given white point -
-    "no rigid constants": every time the illuminant changes, this is
-    called again and re-derives the matrix from the sRGB primaries plus
-    whatever white point was chosen, instead of using a hardcoded one.
-    """
+
     Xr, Yr, Zr = _xy_to_xyz_unit(*_SRGB_PRIMARIES_XY["R"])
     Xg, Yg, Zg = _xy_to_xyz_unit(*_SRGB_PRIMARIES_XY["G"])
     Xb, Yb, Zb = _xy_to_xyz_unit(*_SRGB_PRIMARIES_XY["B"])
@@ -239,9 +161,7 @@ def rgb_to_xyz(r, g, b, white_point):
 
 
 def xyz_to_rgb(X, Y, Z, white_point):
-    """Raw conversion, deliberately NOT clamped to 0-255 here - the
-    ViewModel is what decides whether to clip or scale an out-of-range
-    result, same as it does for every other model."""
+
     inv = _matinv(rgb_to_xyz_matrix(white_point))
     lr, lg, lb = _matmul(inv, (X, Y, Z))
     return _linear_to_srgb(lr), _linear_to_srgb(lg), _linear_to_srgb(lb)
@@ -276,15 +196,11 @@ def rgb_to_lab(r, g, b, white_point):
 
 
 def lab_to_rgb(L, a, b, white_point):
-    """Also deliberately unclamped - see xyz_to_rgb() above."""
+
     return xyz_to_rgb(*lab_to_xyz(L, a, b, white_point), white_point)
 
 
-# ---------------------------------------------------------------------
-# Quick self-test: run "python model/color_math.py" (or
-# "python -m model.color_math" from the project root) to sanity-check
-# the math without touching the GUI at all.
-# ---------------------------------------------------------------------
+
 if __name__ == "__main__":
     print("Pure red (255, 0, 0):")
     print("  CMYK (GCR):", rgb_to_cmyk(255, 0, 0, "GCR"))

@@ -1,14 +1,4 @@
-"""
-tests/test_color_math.py
-=========================
 
-Automated microtests for the Model layer (RGB, CMYK, HLS only - this
-variant doesn't use XYZ/Lab). Uses Python's built-in `unittest` -
-nothing to install.
-
-Run with:  python tests/test_color_math.py -v
-        or python -m unittest discover     (from the project folder)
-"""
 
 import os
 import sys
@@ -98,9 +88,7 @@ class TestConstrain(unittest.TestCase):
 
 
 class TestRgbToLab(unittest.TestCase):
-    """Subgroup-10A addition #2: XYZ/Lab, illuminant-aware. This is the
-    assignment's own example test - RGB(255,0,0) should give strictly
-    correct Lab (and, elsewhere in this file, CMYK) coordinates."""
+
 
     def setUp(self):
         self.d65 = cm.ILLUMINANTS["D65"]
@@ -125,15 +113,13 @@ class TestRgbToLab(unittest.TestCase):
             self.assertAlmostEqual(got, expected, places=0)
 
     def test_different_illuminants_give_different_matrices(self):
-        # "no rigid constants" - changing the lighting standard must
-        # actually change the matrix, not just be ignored.
+
         m_d65 = cm.rgb_to_xyz_matrix(cm.ILLUMINANTS["D65"])
         m_d50 = cm.rgb_to_xyz_matrix(cm.ILLUMINANTS["D50"])
         self.assertNotEqual(m_d65, m_d50)
 
     def test_clip_and_scale_disagree_on_an_out_of_gamut_lab_value(self):
-        # This is the assignment's own example: converting XYZ/Lab back
-        # to RGB can genuinely overflow 0-255, unlike CMYK/HLS.
+
         raw = cm.lab_to_rgb(50, 100, -120, self.d65)
         clipped, _ = cm.constrain(raw, [(0, 255)] * 3, "clip")
         scaled, _ = cm.constrain(raw, [(0, 255)] * 3, "scale")

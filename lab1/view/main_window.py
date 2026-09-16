@@ -1,20 +1,4 @@
-"""
-view/main_window.py
-====================
 
-The window itself. This file never imports model/color_math - it only
-calls methods on the ViewModel it is given (self.vm) and displays
-whatever comes back. Three reusable widgets do all the work:
-
-  GradientSlider - one slider for one component of one model, with a
-                    live-repainting gradient background.
-  Palette        - a small grid of clickable preset colors.
-  ModelSection   - puts a whole model's sliders + entry fields +
-                    palette together. Built ONCE, then reused three
-                    times (for RGB, CMYK and HLS) with different
-                    settings - instead of writing three separate,
-                    almost-identical blocks of UI code.
-"""
 
 import tkinter as tk
 from tkinter import ttk
@@ -22,9 +6,7 @@ from tkinter import ttk
 SLIDER_WIDTH = 220
 SLIDER_HEIGHT = 22
 
-# Shared preset colors offered in every model's palette. Clicking one
-# always just sets the canonical RGB color directly - which model's
-# section it's sitting in doesn't matter.
+
 PALETTE_COLORS = [
     (0, 0, 0), (64, 64, 64), (128, 128, 128), (192, 192, 192), (255, 255, 255),
     (255, 0, 0), (0, 200, 0), (0, 0, 255), (255, 255, 0),
@@ -34,25 +16,16 @@ PALETTE_COLORS = [
 
 
 class GradientSlider(tk.Frame):
-    """
-    A slider for ONE component of ONE model (e.g. just "C" in CMYK).
 
-    To draw the bar, we build one row of pixels: at each position we
-    substitute what THIS component would be there, keep every other
-    component of the same model exactly as it currently is, run that
-    whole tuple through the model's own "convert to RGB" function, and
-    use the result as the pixel color. That is what makes every bar
-    repaint whenever ANY slider in the same section moves.
-    """
 
     def __init__(self, parent, name, index, minv, maxv, get_values, to_rgb, on_change,
                  width=SLIDER_WIDTH, height=SLIDER_HEIGHT, label_width=2):
         super().__init__(parent)
         self.index = index
         self.minv, self.maxv = minv, maxv
-        self.get_values = get_values      # () -> current tuple of this model's values
-        self.to_rgb = to_rgb              # (*values) -> (r, g, b), for drawing only
-        self.on_change = on_change        # (index, new_value) -> None
+        self.get_values = get_values
+        self.to_rgb = to_rgb
+        self.on_change = on_change
         self.width, self.height = width, height
 
         tk.Label(self, text=name, width=label_width, font=("TkDefaultFont", 10, "bold")).grid(row=0, column=0, padx=(0, 4))
@@ -105,8 +78,7 @@ class GradientSlider(tk.Frame):
 
 
 class Palette(tk.Frame):
-    """A grid of clickable preset color swatches - the 'select from a
-    palette, like image editors' requirement."""
+
 
     def __init__(self, parent, colors, on_pick, columns=8):
         super().__init__(parent)
@@ -121,20 +93,14 @@ class Palette(tk.Frame):
 
 
 class ModelSection(tk.LabelFrame):
-    """
-    Everything needed to view AND edit the color in one model: gradient
-    sliders, precise entry fields, and a palette. Instantiated once per
-    model (RGB, CMYK, HLS) with different component lists and different
-    conversion functions - the class itself doesn't know or care which
-    model it's showing.
-    """
+
 
     def __init__(self, parent, title, components, get_values, set_values, to_rgb, set_rgb_directly, on_change):
         super().__init__(parent, text=title, padx=8, pady=8)
-        self.components = components          # [(name, min, max), ...]
-        self.get_values = get_values           # () -> current tuple in this model
-        self.set_values = set_values           # (tuple) -> None, pushes a full new tuple to the ViewModel
-        self.on_change = on_change             # called after any edit, to refresh the whole app
+        self.components = components
+        self.get_values = get_values
+        self.set_values = set_values
+        self.on_change = on_change
 
         self.sliders = []
         for i, (name, minv, maxv) in enumerate(components):
@@ -171,7 +137,7 @@ class ModelSection(tk.LabelFrame):
             try:
                 values[i] = float(text)
             except ValueError:
-                pass  # leave that component unchanged if it wasn't a number
+                pass
         self.set_values(tuple(values))
         self.on_change()
 
@@ -202,7 +168,7 @@ class MainWindow(tk.Tk):
 
         self.refresh_all()
 
-    # -----------------------------------------------------------------------
+
     def _build_top_bar(self):
         bar = tk.Frame(self, padx=10, pady=8)
         bar.grid(row=0, column=0, columnspan=3, sticky="ew")
@@ -243,15 +209,7 @@ class MainWindow(tk.Tk):
         self.vm.set_gamut_mode(self.gamut_mode_var.get())
         self.refresh_all()
 
-    # -----------------------------------------------------------------------
-    # A single big "screen brightness" style slider, like a phone's. It is
-    # just another GradientSlider, pointed at the L (lightness) component
-    # of HLS while H and S stay exactly where they are - so dragging it
-    # dims/brightens the current color instead of picking a new one. Since
-    # every panel is always recomputed from the same canonical RGB, moving
-    # this one slider updates RGB, CMYK and HLS all at once, same as any
-    # other edit.
-    # -----------------------------------------------------------------------
+
     def _build_brightness_bar(self):
         bar = tk.Frame(self, padx=10, pady=4)
         bar.grid(row=1, column=0, columnspan=3, sticky="ew")
@@ -270,7 +228,7 @@ class MainWindow(tk.Tk):
         self.vm.set_from_hls(h, new_value, s)
         self.refresh_all()
 
-    # -----------------------------------------------------------------------
+
     def _build_sections(self):
         self.rgb_section = ModelSection(
             self, "RGB", [("R", 0, 255), ("G", 0, 255), ("B", 0, 255)],
@@ -306,14 +264,7 @@ class MainWindow(tk.Tk):
         self.vm.set_from_rgb(*rgb)
         self.refresh_all()
 
-    # -----------------------------------------------------------------------
-    # XYZ / Lab - subgroup-10A addition #2. Not one of your variant's
-    # three required models, so this stays read-only + a small demo
-    # rather than a fourth fully editable ModelSection: it exists to
-    # prove the illuminant-aware matrix and the clip/scale strategy both
-    # genuinely work, using the exact "XYZ -> RGB overflow" example the
-    # assignment itself gives.
-    # -----------------------------------------------------------------------
+
     def _build_xyz_lab_bonus(self):
         frame = tk.LabelFrame(self, text="XYZ & Lab (subgroup 10A, addition #2 - illuminant-aware)", padx=10, pady=8)
         frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
@@ -359,7 +310,7 @@ class MainWindow(tk.Tk):
         note = "  (was out of range - adjusted)" if changed else ""
         self.lab_demo_result.config(text=f"Lab({L:g},{a:g},{b:g}) --[{mode}]--> RGB({r},{g},{b_}){note}")
 
-    # -----------------------------------------------------------------------
+
     def refresh_all(self):
         self.swatch.configure(bg=self.vm.get_hex())
         r, g, b = self.vm.get_rgb()

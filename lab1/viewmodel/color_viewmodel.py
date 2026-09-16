@@ -1,19 +1,4 @@
-"""
-viewmodel/color_viewmodel.py
-=============================
 
-The "Link" layer, and the only file allowed to import model/color_math.
-The View never touches color_math directly - it only calls methods on
-this class.
-
-Design: the color is always stored internally as canonical RGB. When
-the user edits CMYK or HLS, this class converts THAT model's values to
-RGB and overwrites the canonical color; when the View then asks every
-model for its current values, CMYK and HLS are freshly recomputed from
-that same canonical RGB. That is what makes "change one model, the
-other two update automatically" work, no matter which of the three the
-user was just typing into.
-"""
 
 from model import color_math
 
@@ -21,14 +6,11 @@ from model import color_math
 class ColorViewModel:
     def __init__(self):
         self.rgb = [200, 60, 40]
-        self.cmyk_method = "GCR"     # "GCR" | "UCR"
-        self.gamut_mode = "clip"     # "clip" | "scale"
-        self.illuminant_name = "D65"  # "D65" | "D50" | "E" - subgroup-10A addition #2
-        self.last_warning = ""       # set whenever a typed value had to be constrained
+        self.cmyk_method = "GCR"
+        self.gamut_mode = "clip"
+        self.illuminant_name = "D65"
+        self.last_warning = ""
 
-    # ------------------------------------------------------------------
-    # Settings the View can change
-    # ------------------------------------------------------------------
     def set_cmyk_method(self, method):
         self.cmyk_method = method
 
@@ -38,9 +20,7 @@ class ColorViewModel:
     def set_illuminant(self, name):
         self.illuminant_name = name
 
-    # ------------------------------------------------------------------
-    # Setting the color FROM any one of the three models
-    # ------------------------------------------------------------------
+
     def set_from_rgb(self, r, g, b):
         values, changed = color_math.constrain((r, g, b), [(0, 255)] * 3, self.gamut_mode)
         self.rgb = [round(v) for v in values]
@@ -67,9 +47,7 @@ class ColorViewModel:
             if changed else ""
         )
 
-    # ------------------------------------------------------------------
-    # Reading the color back out, in each of the three models
-    # ------------------------------------------------------------------
+
     def get_rgb(self):
         return tuple(self.rgb)
 
@@ -85,13 +63,7 @@ class ColorViewModel:
         r, g, b = self.rgb
         return color_math.rgb_to_hls(r, g, b)
 
-    # ------------------------------------------------------------------
-    # XYZ / Lab - subgroup-10A addition #2. Read-only: they are shown
-    # alongside the three required models, always recomputed from the
-    # same canonical RGB using whichever illuminant is selected, but you
-    # don't edit the color through them directly (see the Lab -> RGB
-    # demo box below for the one place they DO feed back in).
-    # ------------------------------------------------------------------
+
     def get_white_point(self):
         return color_math.ILLUMINANTS[self.illuminant_name]
 
@@ -104,22 +76,13 @@ class ColorViewModel:
         return color_math.rgb_to_lab(r, g, b, self.get_white_point())
 
     def convert_lab_to_rgb_preview(self, L, a, b, gamut_mode):
-        """
-        Used only by the Lab -> RGB demo box. Deliberately does NOT
-        touch the canonical color - it just answers "if I converted
-        this Lab value right now, what RGB would I get, and did it
-        need clipping/scaling?" so you can compare the two strategies
-        without disturbing whatever color the rest of the app is
-        showing.
-        """
+
         raw = color_math.lab_to_rgb(L, a, b, self.get_white_point())
         values, changed = color_math.constrain(raw, [(0, 255)] * 3, gamut_mode)
         return [round(v) for v in values], changed
 
-    # ------------------------------------------------------------------
-    # "Preview" conversions used only for drawing gradient sliders - the
-    # View calls these instead of importing color_math itself.
-    # ------------------------------------------------------------------
+
+
     def preview_rgb_for_rgb(self, r, g, b):
         return r, g, b
 
