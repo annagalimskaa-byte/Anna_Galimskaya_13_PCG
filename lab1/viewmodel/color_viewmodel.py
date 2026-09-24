@@ -1,9 +1,9 @@
-
-
 from model import color_math
 
 
 class ColorViewModel:
+    
+
     def __init__(self):
         self.rgb = [200, 60, 40]
         self.cmyk_method = "GCR"
@@ -56,10 +56,12 @@ class ColorViewModel:
         return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
     def get_cmyk(self):
+        # истинные значения CMYK — float, не округляем
         r, g, b = self.rgb
         return color_math.rgb_to_cmyk(r, g, b, self.cmyk_method)
 
     def get_hls(self):
+        # истинные значения HLS — float, не округляем
         r, g, b = self.rgb
         return color_math.rgb_to_hls(r, g, b)
 
@@ -68,19 +70,19 @@ class ColorViewModel:
         return color_math.ILLUMINANTS[self.illuminant_name]
 
     def get_xyz(self):
+        # истинные значения XYZ — float
         r, g, b = self.rgb
         return color_math.rgb_to_xyz(r, g, b, self.get_white_point())
 
     def get_lab(self):
+        # истинные значения Lab — float
         r, g, b = self.rgb
         return color_math.rgb_to_lab(r, g, b, self.get_white_point())
 
     def convert_lab_to_rgb_preview(self, L, a, b, gamut_mode):
-
         raw = color_math.lab_to_rgb(L, a, b, self.get_white_point())
         values, changed = color_math.constrain(raw, [(0, 255)] * 3, gamut_mode)
         return [round(v) for v in values], changed
-
 
 
     def preview_rgb_for_rgb(self, r, g, b):

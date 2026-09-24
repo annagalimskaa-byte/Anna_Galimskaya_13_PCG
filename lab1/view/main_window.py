@@ -1,5 +1,3 @@
-
-
 import tkinter as tk
 from tkinter import ttk
 
@@ -74,6 +72,7 @@ class GradientSlider(tk.Frame):
         handle_x = (current - self.minv) / (self.maxv - self.minv) * (self.width - 1)
         self.canvas.create_line(handle_x, 0, handle_x, self.height, fill="black", width=2)
 
+        # отображение значения слайдера — целое
         self.value_label.config(text=f"{current:.0f}")
 
 
@@ -95,7 +94,7 @@ class Palette(tk.Frame):
 class ModelSection(tk.LabelFrame):
 
 
-    def __init__(self, parent, title, components, get_values, set_values, to_rgb, set_rgb_directly, on_change):
+    def __init__(self, parent, title, components, get_values, set_values, to_rgb, on_change):
         super().__init__(parent, text=title, padx=8, pady=8)
         self.components = components
         self.get_values = get_values
@@ -121,23 +120,27 @@ class ModelSection(tk.LabelFrame):
             row=0, column=len(components) * 2, padx=(8, 0)
         )
 
-        tk.Label(self, text="Palette:").grid(row=len(components) + 1, column=0, sticky="w", pady=(4, 0))
-        Palette(self, PALETTE_COLORS, set_rgb_directly).grid(row=len(components) + 2, column=0, sticky="w")
-
     def _on_slider_change(self, index, new_value):
         values = list(self.get_values())
-        values[index] = new_value
+        # приводим к целому — истинные значения модели останутся float
+        values[index] = int(round(new_value))
         self.set_values(tuple(values))
         self.on_change()
 
     def _commit_entries(self):
+        # принимаем только целые числа; дробный или нечисловой ввод игнорируем
         values = list(self.get_values())
         for i in range(len(self.components)):
             text = self.entries[i].get().strip()
+            if not text:
+                continue
             try:
-                values[i] = float(text)
+                num = float(text)
             except ValueError:
-                pass
+                continue
+            if not num.is_integer():
+                continue
+            values[i] = int(num)
         self.set_values(tuple(values))
         self.on_change()
 
@@ -146,6 +149,7 @@ class ModelSection(tk.LabelFrame):
             slider.redraw()
         values = self.get_values()
         for i, v in enumerate(values):
+            # в полях ввода — только целые
             self.entries[i].delete(0, tk.END)
             self.entries[i].insert(0, f"{v:.0f}")
 
@@ -164,6 +168,7 @@ class MainWindow(tk.Tk):
         self._build_top_bar()
         self._build_brightness_bar()
         self._build_sections()
+        self._build_shared_palette()
         self._build_xyz_lab_bonus()
 
         self.refresh_all()
@@ -225,7 +230,7 @@ class MainWindow(tk.Tk):
 
     def _on_brightness_change(self, index, new_value):
         h, l, s = self.vm.get_hls()
-        self.vm.set_from_hls(h, new_value, s)
+        self.vm.set_from_hls(h, int(round(new_value)), s)
         self.refresh_all()
 
 
@@ -235,7 +240,6 @@ class MainWindow(tk.Tk):
             get_values=self.vm.get_rgb,
             set_values=lambda v: self.vm.set_from_rgb(*v),
             to_rgb=self.vm.preview_rgb_for_rgb,
-            set_rgb_directly=self._pick_from_palette,
             on_change=self.refresh_all,
         )
         self.rgb_section.grid(row=2, column=0, sticky="n", padx=10, pady=10)
@@ -245,7 +249,6 @@ class MainWindow(tk.Tk):
             get_values=self.vm.get_cmyk,
             set_values=lambda v: self.vm.set_from_cmyk(*v),
             to_rgb=self.vm.preview_rgb_for_cmyk,
-            set_rgb_directly=self._pick_from_palette,
             on_change=self.refresh_all,
         )
         self.cmyk_section.grid(row=2, column=1, sticky="n", padx=10, pady=10)
@@ -255,10 +258,16 @@ class MainWindow(tk.Tk):
             get_values=self.vm.get_hls,
             set_values=lambda v: self.vm.set_from_hls(*v),
             to_rgb=self.vm.preview_rgb_for_hls,
-            set_rgb_directly=self._pick_from_palette,
             on_change=self.refresh_all,
         )
         self.hls_section.grid(row=2, column=2, sticky="n", padx=10, pady=10)
+
+
+    def _build_shared_palette(self):
+        frame = tk.LabelFrame(self, text="Palette (shared for RGB / CMYK / HLS)", padx=10, pady=8)
+        frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
+
+        Palette(frame, PALETTE_COLORS, self._pick_from_palette, columns=16).grid(row=0, column=0, sticky="w")
 
     def _pick_from_palette(self, rgb):
         self.vm.set_from_rgb(*rgb)
@@ -267,7 +276,7 @@ class MainWindow(tk.Tk):
 
     def _build_xyz_lab_bonus(self):
         frame = tk.LabelFrame(self, text="XYZ & Lab (subgroup 10A, addition #2 - illuminant-aware)", padx=10, pady=8)
-        frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
+        frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
 
         self.xyz_label = tk.Label(frame, text="", anchor="w", justify="left")
         self.xyz_label.grid(row=0, column=0, sticky="w")
@@ -296,19 +305,23 @@ class MainWindow(tk.Tk):
         self.lab_demo_result.grid(row=2, column=0, columnspan=8, sticky="w", pady=(4, 0))
 
     def _run_lab_demo(self):
+        # принимаем только целые значения L*, a*, b*
         try:
-            L = float(self.lab_entries["L*"].get())
-            a = float(self.lab_entries["a*"].get())
-            b = float(self.lab_entries["b*"].get())
+            L = int(self.lab_entries["L*"].get().strip())
+            a = int(self.lab_entries["a*"].get().strip())
+            b = int(self.lab_entries["b*"].get().strip())
         except ValueError:
-            self.lab_demo_result.config(text="Please enter valid numbers.")
+            self.lab_demo_result.config(text="Please enter integer numbers.")
             return
 
         mode = self.gamut_mode_var.get()
         (r, g, b_), changed = self.vm.convert_lab_to_rgb_preview(L, a, b, mode)
         self.lab_demo_swatch.configure(bg="#{:02x}{:02x}{:02x}".format(r, g, b_))
         note = "  (was out of range - adjusted)" if changed else ""
-        self.lab_demo_result.config(text=f"Lab({L:g},{a:g},{b:g}) --[{mode}]--> RGB({r},{g},{b_}){note}")
+        # вывод — только целые
+        self.lab_demo_result.config(
+            text=f"Lab({L},{a},{b}) --[{mode}]--> RGB({r},{g},{b_}){note}"
+        )
 
 
     def refresh_all(self):
@@ -322,7 +335,12 @@ class MainWindow(tk.Tk):
         self.cmyk_section.refresh()
         self.hls_section.refresh()
 
+        # XYZ и Lab — только целые в UI
         X, Y, Z = self.vm.get_xyz()
-        self.xyz_label.config(text=f"XYZ ({self.vm.illuminant_name}):  X={X:.2f}  Y={Y:.2f}  Z={Z:.2f}")
+        self.xyz_label.config(
+            text=f"XYZ ({self.vm.illuminant_name}):  X={X:.0f}  Y={Y:.0f}  Z={Z:.0f}"
+        )
         L, a, bb = self.vm.get_lab()
-        self.lab_label.config(text=f"Lab ({self.vm.illuminant_name}):  L*={L:.2f}  a*={a:.2f}  b*={bb:.2f}")
+        self.lab_label.config(
+            text=f"Lab ({self.vm.illuminant_name}):  L*={L:.0f}  a*={a:.0f}  b*={bb:.0f}"
+        )
