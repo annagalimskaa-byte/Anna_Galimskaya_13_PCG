@@ -1,6 +1,4 @@
 
-
-
 from viewmodel.color_viewmodel import ColorViewModel
 from view.main_window import MainWindow
 
