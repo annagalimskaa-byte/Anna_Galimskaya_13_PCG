@@ -1,3 +1,5 @@
+
+
 import tkinter as tk
 from tkinter import ttk
 
@@ -5,11 +7,16 @@ SLIDER_WIDTH = 220
 SLIDER_HEIGHT = 22
 
 
-PALETTE_COLORS = [
-    (0, 0, 0), (64, 64, 64), (128, 128, 128), (192, 192, 192), (255, 255, 255),
-    (255, 0, 0), (0, 200, 0), (0, 0, 255), (255, 255, 0),
-    (0, 255, 255), (255, 0, 255), (255, 128, 0), (128, 0, 255),
-    (139, 69, 19), (255, 192, 203), (0, 128, 128),
+PALETTE_HUE_COLORS = [
+    (244, 175, 175), (244, 226, 175), (209, 244, 175), (175, 244, 192), (175, 244, 244), (175, 192, 244), (209, 175, 244), (244, 175, 226),
+    (255, 0, 0), (255, 191, 0), (128, 255, 0), (0, 255, 64), (0, 255, 255), (0, 64, 255), (127, 0, 255), (255, 0, 191),
+    (193, 21, 21), (193, 150, 21), (107, 193, 21), (21, 193, 64), (21, 193, 193), (21, 64, 193), (107, 21, 193), (193, 21, 150),
+    (142, 11, 11), (142, 109, 11), (77, 142, 11), (11, 142, 44), (11, 142, 142), (11, 44, 142), (76, 11, 142), (142, 11, 109),
+    (75, 6, 6), (75, 58, 6), (41, 75, 6), (6, 75, 23), (6, 75, 75), (6, 23, 75), (41, 6, 75), (75, 6, 58),
+]
+
+PALETTE_GRAY_COLORS = [
+    (36, 36, 36), (73, 73, 73), (109, 109, 109), (146, 146, 146), (182, 182, 182), (219, 219, 219),
 ]
 
 
@@ -72,23 +79,36 @@ class GradientSlider(tk.Frame):
         handle_x = (current - self.minv) / (self.maxv - self.minv) * (self.width - 1)
         self.canvas.create_line(handle_x, 0, handle_x, self.height, fill="black", width=2)
 
-        # отображение значения слайдера — целое
         self.value_label.config(text=f"{current:.0f}")
 
 
 class Palette(tk.Frame):
 
 
-    def __init__(self, parent, colors, on_pick, columns=8):
+    def __init__(self, parent, colors, on_pick, columns=8, cell=22):
         super().__init__(parent)
+        self.on_pick = on_pick
+
+        rows = (len(colors) + columns - 1) // columns
+        width = columns * cell
+        height = rows * cell
+
+        canvas = tk.Canvas(
+            self, width=width, height=height,
+            highlightthickness=0, bg=parent["bg"],
+        )
+        canvas.pack()
+
         for i, (r, g, b) in enumerate(colors):
             row, col = divmod(i, columns)
-            btn = tk.Button(
-                self, bg="#{:02x}{:02x}{:02x}".format(r, g, b),
-                width=2, height=1, relief="raised", cursor="hand2",
-                command=lambda rgb=(r, g, b): on_pick(rgb),
+            x0, y0 = col * cell, row * cell
+            x1, y1 = x0 + cell, y0 + cell
+            fill = "#{:02x}{:02x}{:02x}".format(r, g, b)
+            rect = canvas.create_rectangle(x0, y0, x1, y1, fill=fill, outline="#888888")
+            canvas.tag_bind(
+                rect, "<Button-1>",
+                lambda e, rgb=(r, g, b): self.on_pick(rgb),
             )
-            btn.grid(row=row, column=col, padx=1, pady=1)
 
 
 class ModelSection(tk.LabelFrame):
@@ -122,25 +142,18 @@ class ModelSection(tk.LabelFrame):
 
     def _on_slider_change(self, index, new_value):
         values = list(self.get_values())
-        # приводим к целому — истинные значения модели останутся float
-        values[index] = int(round(new_value))
+        values[index] = new_value
         self.set_values(tuple(values))
         self.on_change()
 
     def _commit_entries(self):
-        # принимаем только целые числа; дробный или нечисловой ввод игнорируем
         values = list(self.get_values())
         for i in range(len(self.components)):
             text = self.entries[i].get().strip()
-            if not text:
-                continue
             try:
-                num = float(text)
+                values[i] = float(text)
             except ValueError:
-                continue
-            if not num.is_integer():
-                continue
-            values[i] = int(num)
+                pass
         self.set_values(tuple(values))
         self.on_change()
 
@@ -149,7 +162,6 @@ class ModelSection(tk.LabelFrame):
             slider.redraw()
         values = self.get_values()
         for i, v in enumerate(values):
-            # в полях ввода — только целые
             self.entries[i].delete(0, tk.END)
             self.entries[i].insert(0, f"{v:.0f}")
 
@@ -168,7 +180,6 @@ class MainWindow(tk.Tk):
         self._build_top_bar()
         self._build_brightness_bar()
         self._build_sections()
-        self._build_shared_palette()
         self._build_xyz_lab_bonus()
 
         self.refresh_all()
@@ -202,6 +213,10 @@ class MainWindow(tk.Tk):
         illum_menu.grid(row=0, column=5)
         illum_menu.bind("<<ComboboxSelected>>", self._on_illuminant_change)
 
+        ttk.Button(bar, text="Palette...", command=self._open_palette_dialog).grid(
+            row=1, column=4, columnspan=2, padx=(20, 0), sticky="w"
+        )
+
     def _on_illuminant_change(self, event):
         self.vm.set_illuminant(self.illuminant_var.get())
         self.refresh_all()
@@ -230,7 +245,7 @@ class MainWindow(tk.Tk):
 
     def _on_brightness_change(self, index, new_value):
         h, l, s = self.vm.get_hls()
-        self.vm.set_from_hls(h, int(round(new_value)), s)
+        self.vm.set_from_hls(h, new_value, s)
         self.refresh_all()
 
 
@@ -262,21 +277,163 @@ class MainWindow(tk.Tk):
         )
         self.hls_section.grid(row=2, column=2, sticky="n", padx=10, pady=10)
 
-
-    def _build_shared_palette(self):
-        frame = tk.LabelFrame(self, text="Palette (shared for RGB / CMYK / HLS)", padx=10, pady=8)
-        frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
-
-        Palette(frame, PALETTE_COLORS, self._pick_from_palette, columns=16).grid(row=0, column=0, sticky="w")
-
     def _pick_from_palette(self, rgb):
         self.vm.set_from_rgb(*rgb)
         self.refresh_all()
 
 
+    def _open_palette_dialog(self):
+        if getattr(self, "_palette_dialog", None) is not None and self._palette_dialog.winfo_exists():
+            self._palette_dialog.lift()
+            return
+
+        import colorsys
+
+        dialog = tk.Toplevel(self)
+        dialog.title("Palette")
+        dialog.resizable(False, False)
+        self._palette_dialog = dialog
+
+        def pick(rgb):
+            self._pick_from_palette(rgb)
+            dialog.destroy()
+
+
+        left = tk.Frame(dialog)
+        left.grid(row=0, column=0, sticky="nw", padx=10, pady=10)
+
+        tk.Label(left, text="Colors:", anchor="w").grid(row=0, column=0, sticky="w")
+        Palette(left, PALETTE_HUE_COLORS, pick, columns=8).grid(row=1, column=0, sticky="w")
+
+        tk.Label(left, text="Grays:", anchor="w").grid(row=2, column=0, sticky="w", pady=(10, 2))
+        Palette(left, PALETTE_GRAY_COLORS, pick, columns=6).grid(row=3, column=0, sticky="w")
+
+        sep = tk.Frame(left, height=2, bd=1, relief="sunken")
+        sep.grid(row=4, column=0, sticky="ew", pady=12)
+
+        bw = tk.Frame(left)
+        bw.grid(row=5, column=0, sticky="w")
+        tk.Label(bw, text="Black / White:", anchor="w").grid(row=0, column=0, columnspan=2, sticky="w")
+
+        bw_canvas = tk.Canvas(
+            bw, width=90, height=48,
+            highlightthickness=0, bg=bw["bg"],
+        )
+        bw_canvas.grid(row=1, column=0, sticky="w", pady=4)
+
+
+        bw_canvas.create_rectangle(0, 0, 40, 48, fill="#000000", outline="#888888")
+        bw_canvas.tag_bind(
+            bw_canvas.find_all()[-1], "<Button-1>",
+            lambda e: pick((0, 0, 0)),
+        )
+
+
+        bw_canvas.create_rectangle(50, 0, 90, 48, fill="#ffffff", outline="#888888")
+        bw_canvas.tag_bind(
+            bw_canvas.find_all()[-1], "<Button-1>",
+            lambda e: pick((255, 255, 255)),
+        )
+
+
+        HSV_SIZE = 180
+        BAR_W = 22
+
+        right = tk.Frame(dialog)
+        right.grid(row=0, column=1, sticky="nw", padx=(10, 10), pady=10)
+
+        hsv_canvas = tk.Canvas(
+            right, width=HSV_SIZE, height=HSV_SIZE,
+            highlightthickness=1, highlightbackground="#888888", cursor="crosshair",
+        )
+        hsv_canvas.grid(row=0, column=0, sticky="nw")
+
+        bar_canvas = tk.Canvas(
+            right, width=BAR_W, height=HSV_SIZE,
+            highlightthickness=1, highlightbackground="#888888", cursor="hand2",
+        )
+        bar_canvas.grid(row=0, column=1, sticky="nw", padx=(6, 0))
+
+        state = {"h": 0.0, "s": 1.0, "v": 1.0}
+
+        def hsv_to_hex(h, s, v):
+            r, g, b = colorsys.hsv_to_rgb(h, s, v)
+            return "#{:02x}{:02x}{:02x}".format(int(r * 255), int(g * 255), int(b * 255))
+
+        def redraw_hsv():
+            img = tk.PhotoImage(width=HSV_SIZE, height=HSV_SIZE)
+            rows = []
+            for y in range(HSV_SIZE):
+                sat = y / (HSV_SIZE - 1)
+                row = []
+                for x in range(HSV_SIZE):
+                    hue = x / (HSV_SIZE - 1)
+                    row.append(hsv_to_hex(hue, sat, state["v"]))
+                rows.append("{" + " ".join(row) + "}")
+            img.put(" ".join(rows), to=(0, 0))
+            hsv_canvas._img = img
+            hsv_canvas.delete("all")
+            hsv_canvas.create_image(0, 0, anchor="nw", image=img)
+            cx = state["h"] * (HSV_SIZE - 1)
+            cy = state["s"] * (HSV_SIZE - 1)
+            hsv_canvas.create_oval(cx - 5, cy - 5, cx + 5, cy + 5, outline="white", width=2)
+            hsv_canvas.create_oval(cx - 6, cy - 6, cx + 6, cy + 6, outline="black", width=1)
+
+        def redraw_bar():
+            img = tk.PhotoImage(width=BAR_W, height=HSV_SIZE)
+            rows = []
+            for y in range(HSV_SIZE):
+                v = 1.0 - y / (HSV_SIZE - 1)
+                color = hsv_to_hex(state["h"], state["s"], v)
+                rows.append("{" + " ".join([color] * BAR_W) + "}")
+            img.put(" ".join(rows), to=(0, 0))
+            bar_canvas._img = img
+            bar_canvas.delete("all")
+            bar_canvas.create_image(0, 0, anchor="nw", image=img)
+            cy = (1.0 - state["v"]) * (HSV_SIZE - 1)
+            bar_canvas.create_line(0, cy, BAR_W, cy, fill="white", width=3)
+            bar_canvas.create_line(0, cy, BAR_W, cy, fill="black", width=1)
+
+        def on_hsv_click(event):
+            x = max(0, min(HSV_SIZE - 1, event.x))
+            y = max(0, min(HSV_SIZE - 1, event.y))
+            state["h"] = x / (HSV_SIZE - 1)
+            state["s"] = y / (HSV_SIZE - 1)
+            redraw_hsv()
+            redraw_bar()
+
+        def on_bar_click(event):
+            y = max(0, min(HSV_SIZE - 1, event.y))
+            state["v"] = 1.0 - y / (HSV_SIZE - 1)
+            redraw_hsv()
+            redraw_bar()
+
+        hsv_canvas.bind("<Button-1>", on_hsv_click)
+        hsv_canvas.bind("<B1-Motion>", on_hsv_click)
+        bar_canvas.bind("<Button-1>", on_bar_click)
+        bar_canvas.bind("<B1-Motion>", on_bar_click)
+
+
+        def apply_picked():
+            r, g, b = colorsys.hsv_to_rgb(state["h"], state["s"], state["v"])
+            pick((int(r * 255), int(g * 255), int(b * 255)))
+
+        ttk.Button(right, text="Выбрать", command=apply_picked, width=12).grid(
+            row=1, column=0, columnspan=2, pady=(10, 0)
+        )
+
+
+        redraw_hsv()
+        redraw_bar()
+
+
+        ttk.Button(dialog, text="Close", command=dialog.destroy).grid(
+            row=1, column=0, columnspan=2, pady=(0, 10)
+        )
+
     def _build_xyz_lab_bonus(self):
         frame = tk.LabelFrame(self, text="XYZ & Lab (subgroup 10A, addition #2 - illuminant-aware)", padx=10, pady=8)
-        frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
+        frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=(0, 10))
 
         self.xyz_label = tk.Label(frame, text="", anchor="w", justify="left")
         self.xyz_label.grid(row=0, column=0, sticky="w")
@@ -305,23 +462,19 @@ class MainWindow(tk.Tk):
         self.lab_demo_result.grid(row=2, column=0, columnspan=8, sticky="w", pady=(4, 0))
 
     def _run_lab_demo(self):
-        # принимаем только целые значения L*, a*, b*
         try:
-            L = int(self.lab_entries["L*"].get().strip())
-            a = int(self.lab_entries["a*"].get().strip())
-            b = int(self.lab_entries["b*"].get().strip())
+            L = float(self.lab_entries["L*"].get())
+            a = float(self.lab_entries["a*"].get())
+            b = float(self.lab_entries["b*"].get())
         except ValueError:
-            self.lab_demo_result.config(text="Please enter integer numbers.")
+            self.lab_demo_result.config(text="Please enter valid numbers.")
             return
 
         mode = self.gamut_mode_var.get()
         (r, g, b_), changed = self.vm.convert_lab_to_rgb_preview(L, a, b, mode)
         self.lab_demo_swatch.configure(bg="#{:02x}{:02x}{:02x}".format(r, g, b_))
         note = "  (was out of range - adjusted)" if changed else ""
-        # вывод — только целые
-        self.lab_demo_result.config(
-            text=f"Lab({L},{a},{b}) --[{mode}]--> RGB({r},{g},{b_}){note}"
-        )
+        self.lab_demo_result.config(text=f"Lab({L:g},{a:g},{b:g}) --[{mode}]--> RGB({r},{g},{b_}){note}")
 
 
     def refresh_all(self):
@@ -335,12 +488,7 @@ class MainWindow(tk.Tk):
         self.cmyk_section.refresh()
         self.hls_section.refresh()
 
-        # XYZ и Lab — только целые в UI
         X, Y, Z = self.vm.get_xyz()
-        self.xyz_label.config(
-            text=f"XYZ ({self.vm.illuminant_name}):  X={X:.0f}  Y={Y:.0f}  Z={Z:.0f}"
-        )
+        self.xyz_label.config(text=f"XYZ ({self.vm.illuminant_name}):  X={X:.2f}  Y={Y:.2f}  Z={Z:.2f}")
         L, a, bb = self.vm.get_lab()
-        self.lab_label.config(
-            text=f"Lab ({self.vm.illuminant_name}):  L*={L:.0f}  a*={a:.0f}  b*={bb:.0f}"
-        )
+        self.lab_label.config(text=f"Lab ({self.vm.illuminant_name}):  L*={L:.2f}  a*={a:.2f}  b*={bb:.2f}")
