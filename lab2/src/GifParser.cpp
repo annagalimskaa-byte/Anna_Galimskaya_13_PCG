@@ -1,7 +1,6 @@
 #include "GifParser.h"
 #include <fstream>
 #include <cstring>
-#include <iostream>
 
 namespace {
 
@@ -77,10 +76,6 @@ ImageInfo GifParser::parse(const std::string& filePath) {
         file.read(reinterpret_cast<char*>(&blockType), 1);
         if (!file) break;
 
-        std::streampos pos = file.tellg();
-        std::cerr << "[DEBUG] block=0x" << std::hex << (int)blockType
-                  << std::dec << " offset=" << (long long)pos - 1 << std::endl;
-
         if (blockType == 0x3B) {
             foundTrailer = true;
             break;
@@ -90,9 +85,6 @@ ImageInfo GifParser::parse(const std::string& filePath) {
             unsigned char label;
             file.read(reinterpret_cast<char*>(&label), 1);
             if (!file) break;
-
-            std::cerr << "[DEBUG]   extension label=0x" << std::hex << (int)label
-                      << std::dec << std::endl;
 
             if (label == 0xFF) {
                 unsigned char blockSize;
@@ -134,8 +126,6 @@ ImageInfo GifParser::parse(const std::string& filePath) {
             }
         }
         else {
-            std::cerr << "[DEBUG] Unknown block type: 0x" << std::hex
-                      << (int)blockType << std::dec << std::endl;
             info.status = ParseStatus::CORRUPTED;
             info.statusMessage = "Unknown block type";
             return info;
