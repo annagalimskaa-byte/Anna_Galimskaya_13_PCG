@@ -1,3 +1,9 @@
+**🌐 Живое приложение:** https://anna-galimskaya-13-pcg.onrender.com
+
+**📁 Исходный код:** https://github.com/annagalimskaya-byte/Anna_Galimskaya_13_PCG/tree/main/lab3
+
+---
+
 # Лабораторная №3 — Пороговая обработка изображений
 
 Веб-приложение для пороговой обработки изображений.
