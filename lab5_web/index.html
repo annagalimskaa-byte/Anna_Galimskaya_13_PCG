@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Лабораторная №5 — Отсечение отрезков</title>
+<style>
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#172336;background:#f3f6fb}*{box-sizing:border-box}body{margin:0}
+header{background:#17273d;color:#fff;padding:21px 30px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}header h1{font-size:20px;margin:0 0 5px}header p{color:#b9c9d9;font-size:13px;margin:0}
+.chip{font-size:12px;background:#28415b;border:1px solid #49617a;border-radius:18px;padding:7px 12px;color:#dbecfb}
+.layout{max-width:1560px;margin:auto;padding:22px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px}
+.panel,.drawing{background:white;border:1px solid #dce4f0;border-radius:14px;box-shadow:0 3px 12px #122d4e0a}.panel{padding:20px;align-self:start}.panel h2{margin:0 0 16px;font-size:17px}
+.group{padding-bottom:19px;border-bottom:1px solid #e4eaf2;margin-bottom:19px}.group:last-child{padding:0;border:0;margin:0}.group-title{font-weight:700;font-size:13px;margin-bottom:13px;color:#40546b}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}.field label{font-size:12px;font-weight:600;color:#52647a}
+.field select,textarea{width:100%;border-radius:8px;border:1px solid #cbd6e3;background:white;color:#1d3048;padding:10px;font:inherit;font-size:14px;min-width:0}
+textarea{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;min-height:250px;resize:vertical;line-height:1.45}
+.field select:focus,textarea:focus{outline:2px solid #a3c7fe;border-color:#468df1}
+button{cursor:pointer;border:0;border-radius:9px;padding:11px 13px;font-size:13px;font-weight:700}button.primary{color:white;background:#2563eb;width:100%}button.secondary{background:#e9f0fa;color:#254a78;flex:1}button:hover{filter:brightness(.96)}
+.actions{display:flex;gap:8px;margin-bottom:12px}.small{color:#657991;font-size:12px;line-height:1.55;margin:0 0 10px}.small code{background:#eef3f9;padding:1px 4px;border-radius:4px}
+.error{color:#b42318;font-size:12px;min-height:17px;margin-top:8px}
+.result{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.55;background:#f7f9fc;border:1px solid #e1e8f1;border-radius:8px;padding:10px;max-height:260px;overflow:auto;white-space:pre}
+.result .ok{color:#147a45}.result .no{color:#a93737}
+.drawing{overflow:hidden;display:flex;flex-direction:column;min-height:680px}.drawhead{padding:16px 21px;border-bottom:1px solid #e4eaf2;display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}.drawhead strong{font-size:16px}
+.legend{display:flex;gap:16px;font-size:12px;color:#5a6e83;flex-wrap:wrap}.line{display:inline-block;width:20px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}.l-win{background:#235fc8}.l-src{background:repeating-linear-gradient(90deg,#e1783c 0 5px,transparent 5px 9px)}.l-vis{background:#149650;height:4px}
+.canvas-wrap{position:relative;flex:1;min-height:580px;background:#fff}canvas{display:block;width:100%;height:100%;position:absolute;inset:0}
+.statusbar{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;padding:11px 20px;border-top:1px solid #e4eaf2;color:#566b81;font-size:12px}.statusbar strong{color:#1f477e}
+@media(max-width:800px){.layout{grid-template-columns:1fr;padding:12px}.drawing{min-height:580px}.canvas-wrap{min-height:470px}header{padding:18px}.panel{padding:15px}}
+</style></head>
+<body>
+<header><div><h1>Лабораторная №5 · Отсечение отрезков</h1><p>Вариант 6: алгоритм средней точки и отсечение выпуклым многоугольником (Кирус-Бек)</p></div><span class="chip">Веб-версия C++ / Qt проекта · без установки</span></header>
+<main class="layout">
+<aside class="panel">
+<h2>Панель управления</h2>
+<div class="group"><div class="group-title">01 · Алгоритм</div>
+<div class="field"><select id="mode" aria-label="Алгоритм">
+<option value="midpoint">Ч.1: Средняя точка (окно)</option>
+<option value="cyrus">Ч.2: Кирус-Бек (многоугольник)</option>
+</select></div></div>
+<div class="group"><div class="group-title">02 · Входные данные</div>
+<p class="small"><code>n</code> — число отрезков, затем <code>n</code> строк <code>X1 Y1 X2 Y2</code>, затем окно <code>Xmin Ymin Xmax Ymax</code>.<br><i>Для части 2 (необязательно):</i> <code>m</code> — число вершин и <code>m</code> строк <code>X Y</code>.</p>
+<div class="actions"><button class="secondary" id="openBtn">Открыть файл…</button><button class="secondary" id="exampleBtn">Пример</button></div>
+<input type="file" id="file" accept=".txt,text/plain" hidden>
+<div class="field"><textarea id="input" spellcheck="false" aria-label="Входные данные"></textarea></div>
+<button class="primary" id="drawBtn">Отрисовать (Ctrl+Enter)</button>
+<div class="error" id="error" role="alert" aria-live="polite"></div></div>
+<div class="group"><div class="group-title">03 · Результат отсечения</div><div class="result" id="result">—</div>
+<div class="actions" style="margin:12px 0 0"><button class="secondary" id="saveBtn">Сохранить PNG</button></div></div>
+</aside>
+<section class="drawing"><div class="drawhead"><strong>Координатная плоскость</strong>
+<div class="legend"><span><i class="line l-win"></i><span id="winName">Отсекающее окно</span></span><span><i class="line l-src"></i>Исходные отрезки</span><span><i class="line l-vis"></i>Видимые части</span></div></div>
+<div class="canvas-wrap" id="canvasWrap"><canvas id="canvas" aria-label="Координатная плоскость с отрезками и отсекающим окном"></canvas></div>
+<div class="statusbar"><span id="status">Готово</span><span>Курсор: <strong id="cursor">—</strong></span></div></section>
+</main>
+<script>
+'use strict';
+// Алгоритмы портированы из lab5/src/Clipper.cpp исходного проекта.
+const $=id=>document.getElementById(id);
+const canvas=$('canvas'),ctx=canvas.getContext('2d');
+const EXAMPLE=`5
+-200 -100 200 100
+-50 150 50 -150
+0 0 300 300
+-250 120 250 160
+-60 -40 40 60
+-100 -100 100 100
+6
+-150 -100
+0 -150
+150 -100
+150 100
+0 150
+-150 100`;
+const DEFAULT_POLYGON=[[-150,-100],[0,-150],[150,-100],[150,100],[0,150],[-150,100]];
+const EPS=1e-9;
+let scene=null,view={scale:1,ox:0,oy:0};
+
+// ---------- Часть 1: алгоритм средней точки ----------
+const INSIDE=0,LEFT=1,RIGHT=2,BOTTOM=4,TOP=8;
+function code(p,r){let c=INSIDE;if(p[0]<r.xmin)c|=LEFT;else if(p[0]>r.xmax)c|=RIGHT;if(p[1]<r.ymin)c|=BOTTOM;else if(p[1]>r.ymax)c|=TOP;return c;}
+const lerp=(s,t)=>[s[0][0]+(s[1][0]-s[0][0])*t,s[0][1]+(s[1][1]-s[0][1])*t];
+// Кусок [t0,t1]: оба конца внутри → видим; общий бит в кодах → невидим; иначе делим пополам.
+function midpoint(seg,rect,eps=1e-4){
+  let tMin=1,tMax=0,found=false;
+  (function rec(t0,t1){
+    const a=lerp(seg,t0),b=lerp(seg,t1),ca=code(a,rect),cb=code(b,rect);
+    if(ca===INSIDE&&cb===INSIDE){tMin=Math.min(tMin,t0);tMax=Math.max(tMax,t1);found=true;return;}
+    if(ca&cb)return;
+    if(Math.hypot(b[0]-a[0],b[1]-a[1])<eps){
+      if(ca===INSIDE){tMin=Math.min(tMin,t0);tMax=Math.max(tMax,t0);found=true;}
+      if(cb===INSIDE){tMin=Math.min(tMin,t1);tMax=Math.max(tMax,t1);found=true;}
+      return;}
+    const tm=(t0+t1)/2;rec(t0,tm);rec(tm,t1);
+  })(0,1);
+  return found?[lerp(seg,tMin),lerp(seg,tMax)]:null;
+}
+
+// ---------- Часть 2: алгоритм Кируса-Бека ----------
+function signedArea(poly){let s=0;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];s+=a[0]*b[1]-b[0]*a[1];}return s/2;}
+function isConvex(poly){const n=poly.length;if(n<3)return false;let sign=0;for(let i=0;i<n;i++){const a=poly[i],b=poly[(i+1)%n],c=poly[(i+2)%n];const cr=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]);if(Math.abs(cr)<EPS)continue;const s=cr>0?1:-1;if(!sign)sign=s;else if(s!==sign)return false;}return sign!==0;}
+// Внутренняя нормаль N к ребру; num=N·(P1−Vi), den=N·D; den>0 — вход (tE), den<0 — выход (tL).
+function cyrusBeck(seg,poly){
+  const n=poly.length,area=signedArea(poly);if(n<3||Math.abs(area)<EPS)return null;
+  const ccw=area>0,d=[seg[1][0]-seg[0][0],seg[1][1]-seg[0][1]];let tE=0,tL=1;
+  for(let i=0;i<n;i++){
+    const v=poly[i],w=poly[(i+1)%n],e=[w[0]-v[0],w[1]-v[1]];
+    const N=ccw?[-e[1],e[0]]:[e[1],-e[0]];
+    const num=N[0]*(seg[0][0]-v[0])+N[1]*(seg[0][1]-v[1]),den=N[0]*d[0]+N[1]*d[1];
+    if(Math.abs(den)<EPS){if(num<0)return null;continue;}
+    const t=-num/den;if(den>0)tE=Math.max(tE,t);else tL=Math.min(tL,t);
+    if(tE>tL)return null;
+  }
+  return [lerp(seg,tE),lerp(seg,tL)];
+}
+
+// ---------- Разбор входных данных ----------
+function parse(text){
+  const tok=text.split(/[\s,;]+/).filter(Boolean);let pos=0;
+  const num=what=>{if(pos>=tok.length)throw Error('Не хватает данных: ожидается '+what);const v=Number(tok[pos]);if(!Number.isFinite(v))throw Error(`«${tok[pos]}» — не число (${what})`);pos++;return v;};
+  const n=num('число отрезков n');if(!Number.isInteger(n)||n<0)throw Error('n должно быть целым неотрицательным числом');
+  const segs=[];for(let i=1;i<=n;i++){const w='координаты отрезка '+i;segs.push([[num(w),num(w)],[num(w),num(w)]]);}
+  let xmin=num('Xmin окна'),ymin=num('Ymin окна'),xmax=num('Xmax окна'),ymax=num('Ymax окна');
+  if(xmin>xmax)[xmin,xmax]=[xmax,xmin];if(ymin>ymax)[ymin,ymax]=[ymax,ymin];
+  if(xmin===xmax||ymin===ymax)throw Error('Окно вырождено: ширина или высота равна нулю');
+  let poly=DEFAULT_POLYGON;
+  if(pos<tok.length){const m=num('число вершин m');if(!Number.isInteger(m)||m<3)throw Error('Число вершин многоугольника должно быть целым и не меньше 3');poly=[];for(let i=1;i<=m;i++)poly.push([num('вершина '+i),num('вершина '+i)]);}
+  if(pos<tok.length)throw Error(`Лишние данные в конце: «${tok[pos]}»`);
+  return {segs,rect:{xmin,ymin,xmax,ymax},poly};
+}
+
+// ---------- Отрисовка ----------
+function niceStep(raw){const p=10**Math.floor(Math.log10(raw)),f=raw/p;return (f<1.5?1:f<3.5?2:f<7.5?5:10)*p;}
+const fmt=v=>{if(Math.abs(v)<1e-9)v=0;return String(+v.toPrecision(6));};
+const f2=p=>`(${p[0].toFixed(2)}; ${p[1].toFixed(2)})`;
+function canvasSize(){const box=$('canvasWrap'),w=Math.max(1,box.clientWidth),h=Math.max(1,box.clientHeight),r=window.devicePixelRatio||1;canvas.width=Math.round(w*r);canvas.height=Math.round(h*r);ctx.setTransform(r,0,0,r,0,0);return {w,h};}
+function updateView(w,h){
+  let minX=0,maxX=0,minY=0,maxY=0;const inc=p=>{minX=Math.min(minX,p[0]);maxX=Math.max(maxX,p[0]);minY=Math.min(minY,p[1]);maxY=Math.max(maxY,p[1]);};
+  if(scene){for(const s of scene.segs){inc(s[0]);inc(s[1]);}if(scene.mode==='midpoint'){inc([scene.rect.xmin,scene.rect.ymin]);inc([scene.rect.xmax,scene.rect.ymax]);}else scene.poly.forEach(inc);}
+  else{minX=minY=-300;maxX=maxY=300;}
+  const m=40,rx=Math.max(maxX-minX,1e-6),ry=Math.max(maxY-minY,1e-6);
+  view.scale=Math.min((w-2*m)/rx,(h-2*m)/ry);view.ox=w/2-(minX+maxX)/2*view.scale;view.oy=h/2+(minY+maxY)/2*view.scale;
+}
+const S=p=>[view.ox+p[0]*view.scale,view.oy-p[1]*view.scale];
+const W=(x,y)=>[(x-view.ox)/view.scale,(view.oy-y)/view.scale];
+function line(a,b){const p=S(a),q=S(b);ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();}
+function render(){
+  const {w,h}=canvasSize();updateView(w,h);
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+  const step=niceStep(70/view.scale),[x0,y1]=W(0,0),[x1,y0]=W(w,h),[ox,oy]=S([0,0]);
+  // сетка
+  ctx.strokeStyle='#ebeff5';ctx.lineWidth=1;ctx.beginPath();
+  for(let x=Math.ceil(x0/step)*step;x<=x1;x+=step){const sx=Math.round(S([x,0])[0])+.5;ctx.moveTo(sx,0);ctx.lineTo(sx,h);}
+  for(let y=Math.ceil(y0/step)*step;y<=y1;y+=step){const sy=Math.round(S([0,y])[1])+.5;ctx.moveTo(0,sy);ctx.lineTo(w,sy);}
+  ctx.stroke();
+  if(scene){
+    // исходные отрезки — пунктир
+    ctx.strokeStyle='#e1783c';ctx.lineWidth=1.3;ctx.setLineDash([6,5]);for(const s of scene.segs)line(s[0],s[1]);ctx.setLineDash([]);
+    // окно
+    ctx.strokeStyle='#235fc8';ctx.lineWidth=2.2;ctx.beginPath();
+    const pts=scene.mode==='midpoint'?[[scene.rect.xmin,scene.rect.ymin],[scene.rect.xmax,scene.rect.ymin],[scene.rect.xmax,scene.rect.ymax],[scene.rect.xmin,scene.rect.ymax]]:scene.poly;
+    pts.forEach((p,i)=>{const q=S(p);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();ctx.fillStyle='#235fc80d';ctx.fill();ctx.stroke();
+    // видимые части
+    ctx.strokeStyle='#149650';ctx.lineWidth=3.5;ctx.lineCap='round';
+    for(const c of scene.clipped)if(c)line(c[0],c[1]);
+    ctx.fillStyle='#0d6a37';for(const c of scene.clipped)if(c)for(const p of c){const q=S(p);ctx.beginPath();ctx.arc(q[0],q[1],3.5,0,2*Math.PI);ctx.fill();}
+    ctx.lineCap='butt';
+  }
+  // оси со стрелками
+  ctx.strokeStyle='#3c3c46';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(w,oy);ctx.moveTo(ox,0);ctx.lineTo(ox,h);
+  ctx.moveTo(w-1,oy);ctx.lineTo(w-9,oy-4);ctx.moveTo(w-1,oy);ctx.lineTo(w-9,oy+4);ctx.moveTo(ox,1);ctx.lineTo(ox-4,9);ctx.moveTo(ox,1);ctx.lineTo(ox+4,9);ctx.stroke();
+  // засечки и подписи — на белой подложке, поверх всего
+  ctx.font='11px Segoe UI, -apple-system, Arial, sans-serif';ctx.textBaseline='middle';
+  const label=(txt,x,y,align)=>{ctx.textAlign=align;const tw=ctx.measureText(txt).width,bx=align==='center'?x-tw/2:x-tw;ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(bx-2,y-7,tw+4,14);ctx.fillStyle='#55606f';ctx.fillText(txt,x,y);};
+  ctx.beginPath();
+  for(let x=Math.ceil(x0/step)*step;x<=x1;x+=step){if(Math.abs(x)<step/2)continue;const sx=S([x,0])[0];if(sx>w-25)continue;ctx.moveTo(sx,oy-4);ctx.lineTo(sx,oy+4);}
+  for(let y=Math.ceil(y0/step)*step;y<=y1;y+=step){if(Math.abs(y)<step/2)continue;const sy=S([0,y])[1];if(sy<25)continue;ctx.moveTo(ox-4,sy);ctx.lineTo(ox+4,sy);}
+  ctx.stroke();
+  for(let x=Math.ceil(x0/step)*step;x<=x1;x+=step){if(Math.abs(x)<step/2)continue;const sx=S([x,0])[0];if(sx>w-25)continue;label(fmt(x),sx,oy+14,'center');}
+  for(let y=Math.ceil(y0/step)*step;y<=y1;y+=step){if(Math.abs(y)<step/2)continue;const sy=S([0,y])[1];if(sy<25)continue;label(fmt(y),ox-8,sy,'right');}
+  label('0',ox-6,oy+12,'right');
+  ctx.font='bold 13px Segoe UI, -apple-system, Arial, sans-serif';ctx.fillStyle='#3c3c46';ctx.textAlign='left';ctx.fillText('X',w-16,oy-14);ctx.fillText('Y',ox+10,14);
+}
+
+function draw(){
+  try{
+    $('error').textContent='';
+    const data=parse($('input').value),mode=$('mode').value;
+    if(mode==='cyrus'&&!isConvex(data.poly))throw Error('Многоугольник не выпуклый — алгоритм Кируса-Бека к нему неприменим');
+    const clipped=data.segs.map(s=>mode==='midpoint'?midpoint(s,data.rect):cyrusBeck(s,data.poly));
+    scene={...data,mode,clipped};
+    $('winName').textContent=mode==='midpoint'?'Отсекающее окно':'Отсекающий многоугольник';
+    $('result').innerHTML=data.segs.map((s,i)=>`${i+1}) ${f2(s[0])} – ${f2(s[1])}\n   `+(clipped[i]?`<span class="ok">видим: ${f2(clipped[i][0])} – ${f2(clipped[i][1])}</span>`:'<span class="no">полностью невидим</span>')).join('\n')||'Нет отрезков';
+    $('status').textContent=`Отрезков: ${data.segs.length}, видимых: ${clipped.filter(Boolean).length}`;
+    render();
+  }catch(err){$('error').textContent='Ошибка: '+err.message;$('status').textContent='Ошибка во входных данных';}
+}
+
+$('drawBtn').addEventListener('click',draw);
+$('mode').addEventListener('change',draw);
+$('input').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();draw();}});
+$('exampleBtn').addEventListener('click',()=>{$('input').value=EXAMPLE;draw();});
+$('openBtn').addEventListener('click',()=>$('file').click());
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('input').value=r.result;draw();};r.readAsText(f);e.target.value='';});
+$('saveBtn').addEventListener('click',()=>{render();const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='clipping.png';a.click();});
+canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect(),[x,y]=W(e.clientX-r.left,e.clientY-r.top);$('cursor').textContent=`x = ${x.toFixed(1)}  y = ${y.toFixed(1)}`;});
+canvas.addEventListener('mouseleave',()=>$('cursor').textContent='—');
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>render()).observe($('canvasWrap'));else window.addEventListener('resize',render);
+$('input').value=EXAMPLE;draw();
+</script></body></html>
