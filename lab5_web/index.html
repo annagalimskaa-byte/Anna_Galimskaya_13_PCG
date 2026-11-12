@@ -1,207 +1,495 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Лабораторная №5 — Отсечение отрезков</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ЛР 5 — Отсечение отрезков (вариант 6)</title>
 <style>
-:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#172336;background:#f3f6fb}*{box-sizing:border-box}body{margin:0}
-header{background:#17273d;color:#fff;padding:21px 30px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}header h1{font-size:20px;margin:0 0 5px}header p{color:#b9c9d9;font-size:13px;margin:0}
-.chip{font-size:12px;background:#28415b;border:1px solid #49617a;border-radius:18px;padding:7px 12px;color:#dbecfb}
-.layout{max-width:1560px;margin:auto;padding:22px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px}
-.panel,.drawing{background:white;border:1px solid #dce4f0;border-radius:14px;box-shadow:0 3px 12px #122d4e0a}.panel{padding:20px;align-self:start}.panel h2{margin:0 0 16px;font-size:17px}
-.group{padding-bottom:19px;border-bottom:1px solid #e4eaf2;margin-bottom:19px}.group:last-child{padding:0;border:0;margin:0}.group-title{font-weight:700;font-size:13px;margin-bottom:13px;color:#40546b}
-.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}.field label{font-size:12px;font-weight:600;color:#52647a}
-.field select,textarea{width:100%;border-radius:8px;border:1px solid #cbd6e3;background:white;color:#1d3048;padding:10px;font:inherit;font-size:14px;min-width:0}
-textarea{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;min-height:250px;resize:vertical;line-height:1.45}
-.field select:focus,textarea:focus{outline:2px solid #a3c7fe;border-color:#468df1}
-button{cursor:pointer;border:0;border-radius:9px;padding:11px 13px;font-size:13px;font-weight:700}button.primary{color:white;background:#2563eb;width:100%}button.secondary{background:#e9f0fa;color:#254a78;flex:1}button:hover{filter:brightness(.96)}
-.actions{display:flex;gap:8px;margin-bottom:12px}.small{color:#657991;font-size:12px;line-height:1.55;margin:0 0 10px}.small code{background:#eef3f9;padding:1px 4px;border-radius:4px}
-.error{color:#b42318;font-size:12px;min-height:17px;margin-top:8px}
-.result{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.55;background:#f7f9fc;border:1px solid #e1e8f1;border-radius:8px;padding:10px;max-height:260px;overflow:auto;white-space:pre}
-.result .ok{color:#147a45}.result .no{color:#a93737}
-.drawing{overflow:hidden;display:flex;flex-direction:column;min-height:680px}.drawhead{padding:16px 21px;border-bottom:1px solid #e4eaf2;display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}.drawhead strong{font-size:16px}
-.legend{display:flex;gap:16px;font-size:12px;color:#5a6e83;flex-wrap:wrap}.line{display:inline-block;width:20px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}.l-win{background:#235fc8}.l-src{background:repeating-linear-gradient(90deg,#e1783c 0 5px,transparent 5px 9px)}.l-vis{background:#149650;height:4px}
-.canvas-wrap{position:relative;flex:1;min-height:580px;background:#fff}canvas{display:block;width:100%;height:100%;position:absolute;inset:0}
-.statusbar{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;padding:11px 20px;border-top:1px solid #e4eaf2;color:#566b81;font-size:12px}.statusbar strong{color:#1f477e}
-@media(max-width:800px){.layout{grid-template-columns:1fr;padding:12px}.drawing{min-height:580px}.canvas-wrap{min-height:470px}header{padding:18px}.panel{padding:15px}}
-</style></head>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --ink: #1d2330;
+    --muted: #6b7280;
+    --line: #e3e6eb;
+    --accent: #1f6feb;
+    --window: #1f6feb;
+    --original: #d64550;
+    --visible: #169646;
+    --trace: #e08a00;
+    --radius: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 14px; }
+  header {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    padding: 14px 22px; background: var(--card); border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 650; }
+  header .sub { color: var(--muted); }
+  main {
+    display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px;
+    padding: 16px 22px; height: calc(100vh - 56px); min-height: 560px;
+  }
+  @media (max-width: 980px) {
+    main { grid-template-columns: 1fr; height: auto; }
+    .stage { height: 70vh; }
+  }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+  .stage { display: flex; flex-direction: column; min-height: 0; }
+  .toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    padding: 10px 12px; border-bottom: 1px solid var(--line);
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: transparent; padding: 7px 12px; cursor: pointer; font: inherit; color: var(--ink); }
+  .seg button.active { background: var(--accent); color: #fff; }
+  select, button.btn, label.btn {
+    font: inherit; padding: 6px 11px; border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--ink); cursor: pointer;
+  }
+  button.btn:hover, label.btn:hover { border-color: #c4c9d2; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  label.chk { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; user-select: none; }
+  .canvas-wrap { position: relative; flex: 1; min-height: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; border-radius: 0 0 var(--radius) var(--radius); }
+  canvas.dragging { cursor: grabbing; }
+  .coords {
+    position: absolute; right: 10px; bottom: 8px; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--muted); background: rgba(255,255,255,.85); padding: 2px 6px; border-radius: 6px; pointer-events: none;
+  }
+  .side { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .side .card { padding: 12px 14px; }
+  .algo-title { font-size: 16px; font-weight: 650; margin: 0 0 4px; }
+  .algo-info { color: var(--muted); line-height: 1.45; }
+  .editor-card { display: flex; flex-direction: column; gap: 8px; }
+  textarea {
+    width: 100%; min-height: 150px; resize: vertical; padding: 8px 10px;
+    font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    border: 1px solid var(--line); border-radius: 8px; color: var(--ink);
+  }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .error { display: none; color: #a1262f; background: #fdecee; border: 1px solid #f5c2c7; padding: 7px 10px; border-radius: 8px; }
+  .error.show { display: block; }
+  .results { flex: 1; min-height: 160px; overflow: auto; padding: 0 !important; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { position: sticky; top: 0; background: #fafbfc; font-weight: 600; color: var(--muted); }
+  td.num { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  tr.data { cursor: pointer; }
+  tr.data:hover { background: #f5f8ff; }
+  tr.data.selected { background: #e8f0fe; }
+  .vis { color: var(--visible); }
+  .inv { color: var(--original); }
+  .hint { color: var(--muted); font-size: 12px; }
+  .help summary { cursor: pointer; font-weight: 600; }
+  .help pre { margin: 8px 0 0; font-size: 12px; background: #f7f8fa; padding: 8px; border-radius: 6px; overflow: auto; }
+</style>
+</head>
 <body>
-<header><div><h1>Лабораторная №5 · Отсечение отрезков</h1><p>Вариант 6: алгоритм средней точки и отсечение выпуклым многоугольником (Кирус-Бек)</p></div><span class="chip">Веб-версия C++ / Qt проекта · без установки</span></header>
-<main class="layout">
-<aside class="panel">
-<h2>Панель управления</h2>
-<div class="group"><div class="group-title">01 · Алгоритм</div>
-<div class="field"><select id="mode" aria-label="Алгоритм">
-<option value="midpoint">Ч.1: Средняя точка (окно)</option>
-<option value="cyrus">Ч.2: Кирус-Бек (многоугольник)</option>
-</select></div></div>
-<div class="group"><div class="group-title">02 · Входные данные</div>
-<p class="small"><code>n</code> — число отрезков, затем <code>n</code> строк <code>X1 Y1 X2 Y2</code>, затем окно <code>Xmin Ymin Xmax Ymax</code>.<br><i>Для части 2 (необязательно):</i> <code>m</code> — число вершин и <code>m</code> строк <code>X Y</code>.</p>
-<div class="actions"><button class="secondary" id="openBtn">Открыть файл…</button><button class="secondary" id="exampleBtn">Пример</button></div>
-<input type="file" id="file" accept=".txt,text/plain" hidden>
-<div class="field"><textarea id="input" spellcheck="false" aria-label="Входные данные"></textarea></div>
-<button class="primary" id="drawBtn">Отрисовать (Ctrl+Enter)</button>
-<div class="error" id="error" role="alert" aria-live="polite"></div></div>
-<div class="group"><div class="group-title">03 · Результат отсечения</div><div class="result" id="result">—</div>
-<div class="actions" style="margin:12px 0 0"><button class="secondary" id="saveBtn">Сохранить PNG</button></div></div>
-</aside>
-<section class="drawing"><div class="drawhead"><strong>Координатная плоскость</strong>
-<div class="legend"><span><i class="line l-win"></i><span id="winName">Отсекающее окно</span></span><span><i class="line l-src"></i>Исходные отрезки</span><span><i class="line l-vis"></i>Видимые части</span></div></div>
-<div class="canvas-wrap" id="canvasWrap"><canvas id="canvas" aria-label="Координатная плоскость с отрезками и отсекающим окном"></canvas></div>
-<div class="statusbar"><span id="status">Готово</span><span>Курсор: <strong id="cursor">—</strong></span></div></section>
+<header>
+  <h1>Алгоритмы отсечения отрезков</h1>
+  <span class="sub">Лабораторная работа 5 · вариант 6 · средняя точка и Кирус–Бек</span>
+</header>
+
+<main>
+  <section class="card stage">
+    <div class="toolbar">
+      <div class="seg" id="partTabs">
+        <button data-part="1" class="active">Часть 1 · средняя точка</button>
+        <button data-part="2">Часть 2 · Кирус–Бек</button>
+      </div>
+      <select id="examples" title="Встроенные примеры"></select>
+      <label class="btn" title="Загрузить входной файл">Открыть файл…
+        <input type="file" id="fileInput" accept=".txt,text/plain" hidden>
+      </label>
+      <label class="chk"><input type="checkbox" id="showOriginal" checked> Исходные</label>
+      <label class="chk"><input type="checkbox" id="showGrid" checked> Сетка</label>
+      <label class="chk"><input type="checkbox" id="showTrace"> Точки деления</label>
+      <button class="btn" id="fitBtn">Вписать</button>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="canvas"></canvas>
+      <div class="coords" id="coords"></div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <p class="algo-title" id="algoTitle">—</p>
+      <div class="algo-info" id="algoInfo"></div>
+    </div>
+
+    <div class="card editor-card">
+      <div class="row" style="justify-content: space-between">
+        <strong>Входные данные</strong>
+        <span class="hint">Ctrl/⌘ + Enter — применить</span>
+      </div>
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="btn primary" id="applyBtn">Применить</button>
+        <button class="btn" id="downloadBtn">Скачать .txt</button>
+      </div>
+      <div class="error" id="error"></div>
+      <details class="help">
+        <summary>Формат файла</summary>
+<pre>Часть 1 (прямоугольное окно):
+n
+X1 Y1 X2 Y2      ← n строк
+Xmin Ymin Xmax Ymax
+
+Часть 2 (выпуклое окно):
+n
+X1 Y1 X2 Y2      ← n строк
+m                ← число вершин (≥ 3)
+X Y              ← m строк, по порядку обхода
+
+Комментарии: после # или в *звёздочках*</pre>
+      </details>
+    </div>
+
+    <div class="card results">
+      <table>
+        <thead><tr><th>№</th><th>Исходный отрезок</th><th>Видимая часть</th><th title="Число делений (средняя точка) или обработанных рёбер (Кирус–Бек)">Шагов</th></tr></thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </aside>
 </main>
+
+<script src="clipping.js"></script>
+<script src="examples.js"></script>
 <script>
-'use strict';
-// Алгоритмы портированы из lab5/src/Clipper.cpp исходного проекта.
-const $=id=>document.getElementById(id);
-const canvas=$('canvas'),ctx=canvas.getContext('2d');
-const EXAMPLE=`5
--200 -100 200 100
--50 150 50 -150
-0 0 300 300
--250 120 250 160
--60 -40 40 60
--100 -100 100 100
-6
--150 -100
-0 -150
-150 -100
-150 100
-0 150
--150 100`;
-const DEFAULT_POLYGON=[[-150,-100],[0,-150],[150,-100],[150,100],[0,150],[-150,100]];
-const EPS=1e-9;
-let scene=null,view={scale:1,ox:0,oy:0};
+(() => {
+  "use strict";
+  const C = window.Clipping;
+  const EXAMPLES = window.CLIP_EXAMPLES || {};
+  const css = getComputedStyle(document.documentElement);
+  const COLORS = {
+    window: css.getPropertyValue("--window").trim(),
+    original: css.getPropertyValue("--original").trim(),
+    visible: css.getPropertyValue("--visible").trim(),
+    trace: css.getPropertyValue("--trace").trim(),
+  };
 
-// ---------- Часть 1: алгоритм средней точки ----------
-const INSIDE=0,LEFT=1,RIGHT=2,BOTTOM=4,TOP=8;
-function code(p,r){let c=INSIDE;if(p[0]<r.xmin)c|=LEFT;else if(p[0]>r.xmax)c|=RIGHT;if(p[1]<r.ymin)c|=BOTTOM;else if(p[1]>r.ymax)c|=TOP;return c;}
-const lerp=(s,t)=>[s[0][0]+(s[1][0]-s[0][0])*t,s[0][1]+(s[1][1]-s[0][1])*t];
-// Кусок [t0,t1]: оба конца внутри → видим; общий бит в кодах → невидим; иначе делим пополам.
-function midpoint(seg,rect,eps=1e-4){
-  let tMin=1,tMax=0,found=false;
-  (function rec(t0,t1){
-    const a=lerp(seg,t0),b=lerp(seg,t1),ca=code(a,rect),cb=code(b,rect);
-    if(ca===INSIDE&&cb===INSIDE){tMin=Math.min(tMin,t0);tMax=Math.max(tMax,t1);found=true;return;}
-    if(ca&cb)return;
-    if(Math.hypot(b[0]-a[0],b[1]-a[1])<eps){
-      if(ca===INSIDE){tMin=Math.min(tMin,t0);tMax=Math.max(tMax,t0);found=true;}
-      if(cb===INSIDE){tMin=Math.min(tMin,t1);tMax=Math.max(tMax,t1);found=true;}
-      return;}
-    const tm=(t0+t1)/2;rec(t0,tm);rec(tm,t1);
-  })(0,1);
-  return found?[lerp(seg,tMin),lerp(seg,tMax)]:null;
-}
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("canvas");
+  const ctx = canvas.getContext("2d");
 
-// ---------- Часть 2: алгоритм Кируса-Бека ----------
-function signedArea(poly){let s=0;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];s+=a[0]*b[1]-b[0]*a[1];}return s/2;}
-function isConvex(poly){const n=poly.length;if(n<3)return false;let sign=0;for(let i=0;i<n;i++){const a=poly[i],b=poly[(i+1)%n],c=poly[(i+2)%n];const cr=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]);if(Math.abs(cr)<EPS)continue;const s=cr>0?1:-1;if(!sign)sign=s;else if(s!==sign)return false;}return sign!==0;}
-// Внутренняя нормаль N к ребру; num=N·(P1−Vi), den=N·D; den>0 — вход (tE), den<0 — выход (tL).
-function cyrusBeck(seg,poly){
-  const n=poly.length,area=signedArea(poly);if(n<3||Math.abs(area)<EPS)return null;
-  const ccw=area>0,d=[seg[1][0]-seg[0][0],seg[1][1]-seg[0][1]];let tE=0,tL=1;
-  for(let i=0;i<n;i++){
-    const v=poly[i],w=poly[(i+1)%n],e=[w[0]-v[0],w[1]-v[1]];
-    const N=ccw?[-e[1],e[0]]:[e[1],-e[0]];
-    const num=N[0]*(seg[0][0]-v[0])+N[1]*(seg[0][1]-v[1]),den=N[0]*d[0]+N[1]*d[1];
-    if(Math.abs(den)<EPS){if(num<0)return null;continue;}
-    const t=-num/den;if(den>0)tE=Math.max(tE,t);else tL=Math.min(tL,t);
-    if(tE>tL)return null;
+  const state = {
+    data: null, results: [], selected: -1,
+    showOriginal: true, showGrid: true, showTrace: false,
+    cx: 0, cy: 0, scale: 40, autoFit: true,
+    part: "1",
+  };
+
+  const W = () => canvas.clientWidth;
+  const H = () => canvas.clientHeight;
+  const toScreen = (p) => ({ x: W() / 2 + (p.x - state.cx) * state.scale, y: H() / 2 - (p.y - state.cy) * state.scale });
+  const toWorld = (s) => ({ x: state.cx + (s.x - W() / 2) / state.scale, y: state.cy - (s.y - H() / 2) / state.scale });
+
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const m = raw / p;
+    return m < 1.5 ? p : m < 3.5 ? 2 * p : m < 7.5 ? 5 * p : 10 * p;
   }
-  return [lerp(seg,tE),lerp(seg,tL)];
-}
-
-// ---------- Разбор входных данных ----------
-function parse(text){
-  const tok=text.split(/[\s,;]+/).filter(Boolean);let pos=0;
-  const num=what=>{if(pos>=tok.length)throw Error('Не хватает данных: ожидается '+what);const v=Number(tok[pos]);if(!Number.isFinite(v))throw Error(`«${tok[pos]}» — не число (${what})`);pos++;return v;};
-  const n=num('число отрезков n');if(!Number.isInteger(n)||n<0)throw Error('n должно быть целым неотрицательным числом');
-  const segs=[];for(let i=1;i<=n;i++){const w='координаты отрезка '+i;segs.push([[num(w),num(w)],[num(w),num(w)]]);}
-  let xmin=num('Xmin окна'),ymin=num('Ymin окна'),xmax=num('Xmax окна'),ymax=num('Ymax окна');
-  if(xmin>xmax)[xmin,xmax]=[xmax,xmin];if(ymin>ymax)[ymin,ymax]=[ymax,ymin];
-  if(xmin===xmax||ymin===ymax)throw Error('Окно вырождено: ширина или высота равна нулю');
-  let poly=DEFAULT_POLYGON;
-  if(pos<tok.length){const m=num('число вершин m');if(!Number.isInteger(m)||m<3)throw Error('Число вершин многоугольника должно быть целым и не меньше 3');poly=[];for(let i=1;i<=m;i++)poly.push([num('вершина '+i),num('вершина '+i)]);}
-  if(pos<tok.length)throw Error(`Лишние данные в конце: «${tok[pos]}»`);
-  return {segs,rect:{xmin,ymin,xmax,ymax},poly};
-}
-
-// ---------- Отрисовка ----------
-function niceStep(raw){const p=10**Math.floor(Math.log10(raw)),f=raw/p;return (f<1.5?1:f<3.5?2:f<7.5?5:10)*p;}
-const fmt=v=>{if(Math.abs(v)<1e-9)v=0;return String(+v.toPrecision(6));};
-const f2=p=>`(${p[0].toFixed(2)}; ${p[1].toFixed(2)})`;
-function canvasSize(){const box=$('canvasWrap'),w=Math.max(1,box.clientWidth),h=Math.max(1,box.clientHeight),r=window.devicePixelRatio||1;canvas.width=Math.round(w*r);canvas.height=Math.round(h*r);ctx.setTransform(r,0,0,r,0,0);return {w,h};}
-function updateView(w,h){
-  let minX=0,maxX=0,minY=0,maxY=0;const inc=p=>{minX=Math.min(minX,p[0]);maxX=Math.max(maxX,p[0]);minY=Math.min(minY,p[1]);maxY=Math.max(maxY,p[1]);};
-  if(scene){for(const s of scene.segs){inc(s[0]);inc(s[1]);}if(scene.mode==='midpoint'){inc([scene.rect.xmin,scene.rect.ymin]);inc([scene.rect.xmax,scene.rect.ymax]);}else scene.poly.forEach(inc);}
-  else{minX=minY=-300;maxX=maxY=300;}
-  const m=40,rx=Math.max(maxX-minX,1e-6),ry=Math.max(maxY-minY,1e-6);
-  view.scale=Math.min((w-2*m)/rx,(h-2*m)/ry);view.ox=w/2-(minX+maxX)/2*view.scale;view.oy=h/2+(minY+maxY)/2*view.scale;
-}
-const S=p=>[view.ox+p[0]*view.scale,view.oy-p[1]*view.scale];
-const W=(x,y)=>[(x-view.ox)/view.scale,(view.oy-y)/view.scale];
-function line(a,b){const p=S(a),q=S(b);ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();}
-function render(){
-  const {w,h}=canvasSize();updateView(w,h);
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
-  const step=niceStep(70/view.scale),[x0,y1]=W(0,0),[x1,y0]=W(w,h),[ox,oy]=S([0,0]);
-  // сетка
-  ctx.strokeStyle='#ebeff5';ctx.lineWidth=1;ctx.beginPath();
-  for(let x=Math.ceil(x0/step)*step;x<=x1;x+=step){const sx=Math.round(S([x,0])[0])+.5;ctx.moveTo(sx,0);ctx.lineTo(sx,h);}
-  for(let y=Math.ceil(y0/step)*step;y<=y1;y+=step){const sy=Math.round(S([0,y])[1])+.5;ctx.moveTo(0,sy);ctx.lineTo(w,sy);}
-  ctx.stroke();
-  if(scene){
-    // исходные отрезки — пунктир
-    ctx.strokeStyle='#e1783c';ctx.lineWidth=1.3;ctx.setLineDash([6,5]);for(const s of scene.segs)line(s[0],s[1]);ctx.setLineDash([]);
-    // окно
-    ctx.strokeStyle='#235fc8';ctx.lineWidth=2.2;ctx.beginPath();
-    const pts=scene.mode==='midpoint'?[[scene.rect.xmin,scene.rect.ymin],[scene.rect.xmax,scene.rect.ymin],[scene.rect.xmax,scene.rect.ymax],[scene.rect.xmin,scene.rect.ymax]]:scene.poly;
-    pts.forEach((p,i)=>{const q=S(p);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});ctx.closePath();ctx.fillStyle='#235fc80d';ctx.fill();ctx.stroke();
-    // видимые части
-    ctx.strokeStyle='#149650';ctx.lineWidth=3.5;ctx.lineCap='round';
-    for(const c of scene.clipped)if(c)line(c[0],c[1]);
-    ctx.fillStyle='#0d6a37';for(const c of scene.clipped)if(c)for(const p of c){const q=S(p);ctx.beginPath();ctx.arc(q[0],q[1],3.5,0,2*Math.PI);ctx.fill();}
-    ctx.lineCap='butt';
+  function fmt(v, step) {
+    if (Math.abs(v) < step * 1e-6) v = 0;
+    const d = step >= 1 ? 0 : Math.ceil(-Math.log10(step));
+    return v.toFixed(d);
   }
-  // оси со стрелками
-  ctx.strokeStyle='#3c3c46';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(w,oy);ctx.moveTo(ox,0);ctx.lineTo(ox,h);
-  ctx.moveTo(w-1,oy);ctx.lineTo(w-9,oy-4);ctx.moveTo(w-1,oy);ctx.lineTo(w-9,oy+4);ctx.moveTo(ox,1);ctx.lineTo(ox-4,9);ctx.moveTo(ox,1);ctx.lineTo(ox+4,9);ctx.stroke();
-  // засечки и подписи — на белой подложке, поверх всего
-  ctx.font='11px Segoe UI, -apple-system, Arial, sans-serif';ctx.textBaseline='middle';
-  const label=(txt,x,y,align)=>{ctx.textAlign=align;const tw=ctx.measureText(txt).width,bx=align==='center'?x-tw/2:x-tw;ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(bx-2,y-7,tw+4,14);ctx.fillStyle='#55606f';ctx.fillText(txt,x,y);};
-  ctx.beginPath();
-  for(let x=Math.ceil(x0/step)*step;x<=x1;x+=step){if(Math.abs(x)<step/2)continue;const sx=S([x,0])[0];if(sx>w-25)continue;ctx.moveTo(sx,oy-4);ctx.lineTo(sx,oy+4);}
-  for(let y=Math.ceil(y0/step)*step;y<=y1;y+=step){if(Math.abs(y)<step/2)continue;const sy=S([0,y])[1];if(sy<25)continue;ctx.moveTo(ox-4,sy);ctx.lineTo(ox+4,sy);}
-  ctx.stroke();
-  for(let x=Math.ceil(x0/step)*step;x<=x1;x+=step){if(Math.abs(x)<step/2)continue;const sx=S([x,0])[0];if(sx>w-25)continue;label(fmt(x),sx,oy+14,'center');}
-  for(let y=Math.ceil(y0/step)*step;y<=y1;y+=step){if(Math.abs(y)<step/2)continue;const sy=S([0,y])[1];if(sy<25)continue;label(fmt(y),ox-8,sy,'right');}
-  label('0',ox-6,oy+12,'right');
-  ctx.font='bold 13px Segoe UI, -apple-system, Arial, sans-serif';ctx.fillStyle='#3c3c46';ctx.textAlign='left';ctx.fillText('X',w-16,oy-14);ctx.fillText('Y',ox+10,14);
-}
+  const fmtPt = (p, d = 3) => `(${+p.x.toFixed(d)}; ${+p.y.toFixed(d)})`;
 
-function draw(){
-  try{
-    $('error').textContent='';
-    const data=parse($('input').value),mode=$('mode').value;
-    if(mode==='cyrus'&&!isConvex(data.poly))throw Error('Многоугольник не выпуклый — алгоритм Кируса-Бека к нему неприменим');
-    const clipped=data.segs.map(s=>mode==='midpoint'?midpoint(s,data.rect):cyrusBeck(s,data.poly));
-    scene={...data,mode,clipped};
-    $('winName').textContent=mode==='midpoint'?'Отсекающее окно':'Отсекающий многоугольник';
-    $('result').innerHTML=data.segs.map((s,i)=>`${i+1}) ${f2(s[0])} – ${f2(s[1])}\n   `+(clipped[i]?`<span class="ok">видим: ${f2(clipped[i][0])} – ${f2(clipped[i][1])}</span>`:'<span class="no">полностью невидим</span>')).join('\n')||'Нет отрезков';
-    $('status').textContent=`Отрезков: ${data.segs.length}, видимых: ${clipped.filter(Boolean).length}`;
-    render();
-  }catch(err){$('error').textContent='Ошибка: '+err.message;$('status').textContent='Ошибка во входных данных';}
-}
+  function windowPolygon() {
+    if (!state.data) return [];
+    return state.data.kind === "rect" ? C.rectToPolygon(state.data.rect) : state.data.polygon;
+  }
 
-$('drawBtn').addEventListener('click',draw);
-$('mode').addEventListener('change',draw);
-$('input').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();draw();}});
-$('exampleBtn').addEventListener('click',()=>{$('input').value=EXAMPLE;draw();});
-$('openBtn').addEventListener('click',()=>$('file').click());
-$('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('input').value=r.result;draw();};r.readAsText(f);e.target.value='';});
-$('saveBtn').addEventListener('click',()=>{render();const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='clipping.png';a.click();});
-canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect(),[x,y]=W(e.clientX-r.left,e.clientY-r.top);$('cursor').textContent=`x = ${x.toFixed(1)}  y = ${y.toFixed(1)}`;});
-canvas.addEventListener('mouseleave',()=>$('cursor').textContent='—');
-if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>render()).observe($('canvasWrap'));else window.addEventListener('resize',render);
-$('input').value=EXAMPLE;draw();
-</script></body></html>
+  function fit() {
+    const pts = [{ x: 0, y: 0 }];
+    if (state.data) {
+      state.data.segments.forEach((s) => pts.push(s.a, s.b));
+      pts.push(...windowPolygon());
+    }
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    state.cx = (minX + maxX) / 2;
+    state.cy = (minY + maxY) / 2;
+    state.scale = Math.min(W() * 0.85 / Math.max(maxX - minX, 1e-6), H() * 0.85 / Math.max(maxY - minY, 1e-6));
+    if (!isFinite(state.scale) || state.scale <= 0) state.scale = 40;
+    state.autoFit = true;
+    draw();
+  }
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(W() * dpr);
+    canvas.height = Math.round(H() * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (state.autoFit) fit(); else draw();
+  }
+
+  function line(a, b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+  function dot(p, r, fill, stroke) {
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = fill; ctx.fill();
+    if (stroke) { ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; ctx.stroke(); }
+  }
+
+  function drawGrid() {
+    const step = niceStep(60 / state.scale);
+    const tl = toWorld({ x: 0, y: 0 }), br = toWorld({ x: W(), y: H() });
+    [[step / 5, "#efefef"], [step, "#dcdcdc"]].forEach(([st, color]) => {
+      if (st * state.scale < 8) return;
+      ctx.strokeStyle = color; ctx.lineWidth = 1;
+      for (let x = Math.floor(tl.x / st) * st; x <= br.x; x += st) {
+        const sx = Math.round(toScreen({ x, y: 0 }).x) + 0.5; line({ x: sx, y: 0 }, { x: sx, y: H() });
+      }
+      for (let y = Math.floor(br.y / st) * st; y <= tl.y; y += st) {
+        const sy = Math.round(toScreen({ x: 0, y }).y) + 0.5; line({ x: 0, y: sy }, { x: W(), y: sy });
+      }
+    });
+  }
+
+  function drawAxes() {
+    const step = niceStep(60 / state.scale);
+    const o = toScreen({ x: 0, y: 0 });
+    const ox = Math.min(Math.max(o.x, 0), W()), oy = Math.min(Math.max(o.y, 0), H());
+    ctx.strokeStyle = "#282828"; ctx.fillStyle = "#282828"; ctx.lineWidth = 1.5;
+    line({ x: 0, y: oy }, { x: W(), y: oy });
+    line({ x: ox, y: 0 }, { x: ox, y: H() });
+    ctx.beginPath();
+    ctx.moveTo(W() - 1, oy); ctx.lineTo(W() - 11, oy - 5); ctx.lineTo(W() - 11, oy + 5); ctx.closePath();
+    ctx.moveTo(ox, 1); ctx.lineTo(ox - 5, 11); ctx.lineTo(ox + 5, 11); ctx.closePath();
+    ctx.fill();
+    ctx.font = "12px -apple-system, Segoe UI, sans-serif";
+    ctx.fillText("X", W() - 16, oy - 10);
+    ctx.fillText("Y", ox + 10, 14);
+
+    const tl = toWorld({ x: 0, y: 0 }), br = toWorld({ x: W(), y: H() });
+    ctx.fillStyle = "#5a5a5a"; ctx.strokeStyle = "#5a5a5a"; ctx.lineWidth = 1;
+    ctx.font = "11px -apple-system, Segoe UI, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let x = Math.ceil(tl.x / step) * step; x <= br.x; x += step) {
+      if (Math.abs(x) < step / 2) continue;
+      const sx = toScreen({ x, y: 0 }).x;
+      line({ x: sx, y: oy - 3 }, { x: sx, y: oy + 3 });
+      ctx.fillText(fmt(x, step), sx, oy + 5);
+    }
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let y = Math.ceil(br.y / step) * step; y <= tl.y; y += step) {
+      if (Math.abs(y) < step / 2) continue;
+      const sy = toScreen({ x: 0, y }).y;
+      line({ x: ox - 3, y: sy }, { x: ox + 3, y: sy });
+      ctx.fillText(fmt(y, step), ox - 6, sy);
+    }
+    ctx.textBaseline = "top"; ctx.fillText("0", ox - 5, oy + 5);
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  }
+
+  function drawWindow() {
+    const poly = windowPolygon().map(toScreen);
+    if (!poly.length) return;
+    ctx.beginPath();
+    poly.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.closePath();
+    ctx.fillStyle = "rgba(31,111,235,0.10)"; ctx.fill();
+    ctx.strokeStyle = COLORS.window; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  function drawSegments() {
+    const segs = state.data.segments;
+    if (state.showOriginal) {
+      ctx.setLineDash([6, 4]); ctx.strokeStyle = COLORS.original; ctx.lineWidth = 1.5;
+      segs.forEach((s, i) => { ctx.lineWidth = i === state.selected ? 2.5 : 1.5; line(toScreen(s.a), toScreen(s.b)); });
+      ctx.setLineDash([]);
+      segs.forEach((s) => { dot(toScreen(s.a), 2.5, COLORS.original); dot(toScreen(s.b), 2.5, COLORS.original); });
+    }
+    ctx.lineCap = "round";
+    state.results.forEach((r, i) => {
+      if (!r.visible) return;
+      ctx.strokeStyle = COLORS.visible; ctx.lineWidth = i === state.selected ? 6 : 3.5;
+      line(toScreen(r.visible.a), toScreen(r.visible.b));
+    });
+    ctx.lineCap = "butt";
+    state.results.forEach((r) => {
+      if (!r.visible) return;
+      dot(toScreen(r.visible.a), 4, COLORS.visible, "#fff");
+      dot(toScreen(r.visible.b), 4, COLORS.visible, "#fff");
+    });
+    state.results.forEach((r, i) => {
+      if (!(state.showTrace || i === state.selected)) return;
+      r.trace.forEach((p) => dot(toScreen(p), 2.6, COLORS.trace, "#fff"));
+    });
+  }
+
+  function drawLegend() {
+    const x = 12, y = 12, w = 196, h = state.showTrace || state.selected >= 0 ? 100 : 78;
+    ctx.fillStyle = "rgba(255,255,255,0.92)"; ctx.strokeStyle = "#d0d0d0"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(x + 0.5, y + 0.5, w, h, 6); ctx.fill(); ctx.stroke();
+    ctx.font = "12.5px -apple-system, Segoe UI, sans-serif";
+    const rows = [
+      [COLORS.window, 2, [], "Отсекающее окно"],
+      [COLORS.original, 1.5, [6, 4], "Исходные отрезки"],
+      [COLORS.visible, 3.5, [], "Видимые части"],
+    ];
+    rows.forEach(([c, lw, dash, text], i) => {
+      const yy = y + 19 + i * 21;
+      ctx.setLineDash(dash); ctx.strokeStyle = c; ctx.lineWidth = lw;
+      line({ x: x + 12, y: yy }, { x: x + 42, y: yy });
+      ctx.setLineDash([]); ctx.fillStyle = "#282828"; ctx.fillText(text, x + 52, yy + 4);
+    });
+    if (h > 78) {
+      const yy = y + 19 + 3 * 21;
+      dot({ x: x + 27, y: yy }, 3, COLORS.trace, "#fff");
+      ctx.fillStyle = "#282828";
+      ctx.fillText(state.data && state.data.kind === "polygon" ? "Пересечения с рёбрами" : "Точки деления", x + 52, yy + 4);
+    }
+  }
+
+  function draw() {
+    const w = W(), h = H();
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+    if (state.showGrid) drawGrid();
+    drawAxes();
+    if (state.data) { drawWindow(); drawSegments(); }
+    drawLegend();
+  }
+
+  function process(text, name) {
+    const err = $("error");
+    try {
+      const data = C.parseInput(text);
+      state.data = data;
+      state.results = C.clipAll(data);
+      state.selected = -1;
+      err.classList.remove("show");
+      setPartTab(data.kind === "rect" ? "1" : "2", false);
+      renderInfo(name);
+      renderTable();
+      fit();
+    } catch (e) {
+      err.textContent = "Ошибка: " + e.message;
+      err.classList.add("show");
+    }
+  }
+
+  function renderInfo(name) {
+    const d = state.data;
+    $("algoTitle").textContent = C.algorithmName(d.kind);
+    const visible = state.results.filter((r) => r.visible).length;
+    const win = d.kind === "rect"
+      ? `Окно: x ∈ [${d.rect.xmin}; ${d.rect.xmax}], y ∈ [${d.rect.ymin}; ${d.rect.ymax}]`
+      : `Окно: выпуклый многоугольник, вершин: ${d.polygon.length}`;
+    const how = d.kind === "rect"
+      ? "Отрезок делится пополам, пока части не станут тривиально видимыми или невидимыми по кодам областей."
+      : "Отрезок задан параметрически P(t) = P₁ + t(P₂ − P₁); для каждого ребра по внутренней нормали уточняются t входа и выхода.";
+    $("algoInfo").innerHTML = `${win}<br>${name ? name + ": " : ""}отрезков ${d.segments.length}, видимых ${visible}<br><span class="hint">${how}</span>`;
+  }
+
+  function renderTable() {
+    const body = $("resultsBody");
+    body.innerHTML = "";
+    state.data.segments.forEach((s, i) => {
+      const r = state.results[i];
+      const tr = document.createElement("tr");
+      tr.className = "data" + (i === state.selected ? " selected" : "");
+      tr.innerHTML = `<td>${i + 1}</td><td class="num">${fmtPt(s.a, 6)}<br>${fmtPt(s.b, 6)}</td>` +
+        (r.visible ? `<td class="num vis">${fmtPt(r.visible.a)}<br>${fmtPt(r.visible.b)}</td>` : `<td class="inv">невидим</td>`) +
+        `<td class="num">${r.steps}</td>`;
+      tr.addEventListener("click", () => {
+        state.selected = state.selected === i ? -1 : i;
+        renderTable(); draw();
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  function fillExamples(part) {
+    const sel = $("examples");
+    sel.innerHTML = "";
+    Object.keys(EXAMPLES)
+      .filter((n) => n.startsWith("part" + part) || (part === "2" && n.startsWith("error")))
+      .sort((a, b) => a.startsWith("error") - b.startsWith("error") || a.localeCompare(b))
+      .forEach((n) => sel.add(new Option(n, n)));
+  }
+
+  function setPartTab(part, loadFirst) {
+    state.part = part;
+    document.querySelectorAll("#partTabs button").forEach((b) => b.classList.toggle("active", b.dataset.part === part));
+    const sel = $("examples");
+    const current = sel.value;
+    fillExamples(part);
+    if (loadFirst && sel.options.length) loadExample(sel.options[0].value);
+    else if ([...sel.options].some((o) => o.value === current)) sel.value = current;
+    else sel.selectedIndex = -1;
+  }
+
+  function loadExample(name) {
+    $("editor").value = EXAMPLES[name];
+    $("examples").value = name;
+    process(EXAMPLES[name], name);
+  }
+
+  document.querySelectorAll("#partTabs button").forEach((b) =>
+    b.addEventListener("click", () => setPartTab(b.dataset.part, true)));
+  $("examples").addEventListener("change", (e) => loadExample(e.target.value));
+  $("fileInput").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    f.text().then((t) => { $("editor").value = t; process(t, f.name); });
+    e.target.value = "";
+  });
+  $("applyBtn").addEventListener("click", () => process($("editor").value, "редактор"));
+  $("editor").addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); $("applyBtn").click(); }
+  });
+  $("downloadBtn").addEventListener("click", () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([$("editor").value], { type: "text/plain" }));
+    a.download = "input.txt"; a.click(); URL.revokeObjectURL(a.href);
+  });
+  $("showOriginal").addEventListener("change", (e) => { state.showOriginal = e.target.checked; draw(); });
+  $("showGrid").addEventListener("change", (e) => { state.showGrid = e.target.checked; draw(); });
+  $("showTrace").addEventListener("change", (e) => { state.showTrace = e.target.checked; draw(); });
+  $("fitBtn").addEventListener("click", fit);
+
+  let drag = null;
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const r = canvas.getBoundingClientRect();
+    const s = { x: e.clientX - r.left, y: e.clientY - r.top };
+    const before = toWorld(s);
+    state.scale = Math.min(Math.max(state.scale * Math.pow(1.0015, -e.deltaY), 1e-3), 1e7);
+    const after = toWorld(s);
+    state.cx += before.x - after.x; state.cy += before.y - after.y;
+    state.autoFit = false; draw();
+  }, { passive: false });
+  canvas.addEventListener("pointerdown", (e) => {
+    drag = { x: e.clientX, y: e.clientY };
+    canvas.setPointerCapture(e.pointerId); canvas.classList.add("dragging");
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    const r = canvas.getBoundingClientRect();
+    const w = toWorld({ x: e.clientX - r.left, y: e.clientY - r.top });
+    $("coords").textContent = `x = ${w.x.toFixed(2)}   y = ${w.y.toFixed(2)}`;
+    if (!drag) return;
+    state.cx -= (e.clientX - drag.x) / state.scale;
+    state.cy += (e.clientY - drag.y) / state.scale;
+    drag = { x: e.clientX, y: e.clientY };
+    state.autoFit = false; draw();
+  });
+  const endDrag = () => { drag = null; canvas.classList.remove("dragging"); };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+
+  new ResizeObserver(resize).observe(canvas);
+
+  fillExamples("1");
+  resize();
+  loadExample("part1_basic.txt");
+})();
+</script>
+</body>
+</html>

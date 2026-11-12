@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/examples">
+        <file alias="error_nonconvex.txt">../tests/data/error_nonconvex.txt</file>
+        <file alias="part1_basic.txt">../tests/data/part1_basic.txt</file>
+        <file alias="part1_edge_cases.txt">../tests/data/part1_edge_cases.txt</file>
+        <file alias="part1_star.txt">../tests/data/part1_star.txt</file>
+        <file alias="part2_hexagon.txt">../tests/data/part2_hexagon.txt</file>
+        <file alias="part2_octagon.txt">../tests/data/part2_octagon.txt</file>
+        <file alias="part2_triangle_cw.txt">../tests/data/part2_triangle_cw.txt</file>
+    </qresource>
+</RCC>
