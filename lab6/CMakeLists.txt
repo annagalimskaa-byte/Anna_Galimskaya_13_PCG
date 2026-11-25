@@ -3,17 +3,16 @@ project(lab6_3d_part VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # для IntelliSense в VS Code
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_BUILD_TYPE Release)  # программный растеризатор заметно быстрее с оптимизацией
+    set(CMAKE_BUILD_TYPE Release)
 endif()
 
 if(APPLE)
     set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt" "/usr/local/opt/qt" ${CMAKE_PREFIX_PATH})
 endif()
 
-# Ядро без Qt: матрицы 4x4, генерация детали, программный рендерер
 add_library(part_core STATIC
     src/math3d.cpp
     src/mesh.cpp
@@ -21,7 +20,6 @@ add_library(part_core STATIC
 )
 target_include_directories(part_core PUBLIC include)
 
-# Модульные тесты и рендер без GUI собираются всегда (Qt не нужен)
 enable_testing()
 add_executable(lab6_tests tests/unit_tests.cpp)
 target_link_libraries(lab6_tests PRIVATE part_core)
@@ -30,7 +28,6 @@ add_test(NAME unit_tests COMMAND lab6_tests)
 add_executable(lab6_render_demo tools/render_demo.cpp)
 target_link_libraries(lab6_render_demo PRIVATE part_core)
 
-# GUI на Qt 6
 find_package(Qt6 COMPONENTS Widgets Core Gui)
 if(Qt6_FOUND)
     set(CMAKE_AUTOMOC ON)
