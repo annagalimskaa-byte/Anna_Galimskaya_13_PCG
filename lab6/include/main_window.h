@@ -78,5 +78,5 @@ private:
 
     QTimer* timer_ = nullptr;
     QElapsedTimer clock_;
-    double animAngle_ = 0;  // накопленный угол анимации (для истории)
+    double animAngle_ = 0;
 };

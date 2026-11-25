@@ -1,6 +1,4 @@
 #pragma once
-// Общее состояние сцены: деталь, матрица моделирования, ось вращения, камера, настройки.
-// Все 4 окна просмотра читают одну сцену и обновляются синхронно.
 
 #include <algorithm>
 #include <string>
@@ -12,12 +10,12 @@
 
 struct Scene {
     mesh::Mesh mesh;
-    mesh::Stats stats;                          // V, E, F, Эйлер, центр масс, площадь
-    m3d::Mat4 model = m3d::Mat4::identity();    // результирующая матрица моделирования M
-    std::vector<m3d::Vec3> world;               // вершины после M
-    std::vector<std::string> history;           // цепочка применённых преобразований
+    mesh::Stats stats;
+    m3d::Mat4 model = m3d::Mat4::identity();
+    std::vector<m3d::Vec3> world;
+    std::vector<std::string> history;
 
-    m3d::Vec3 p1{80, -120, 20};   // ось вращения P1P2
+    m3d::Vec3 p1{80, -120, 20};
     m3d::Vec3 p2{80, 120, 60};
 
     render::OrbitCamera camera;
@@ -31,14 +29,13 @@ struct Scene {
         updateWorld();
     }
 
-    // M_new = Op · M_old: новое преобразование применяется к уже преобразованной детали
     void apply(const m3d::Mat4& op, const std::string& description) {
         model = op * model;
         history.push_back(description);
         updateWorld();
     }
 
-    void applySilently(const m3d::Mat4& op) {  // для анимации (без записи в историю)
+    void applySilently(const m3d::Mat4& op) {
         model = op * model;
         updateWorld();
     }
@@ -55,8 +52,6 @@ struct Scene {
         stats.det = m3d::det3(model);
     }
 
-    // Точки, по которым ортографические виды подбирают масштаб и центр:
-    // описанная сфера детали (не «дышит» при вращении), начало координат и ось P1P2.
     std::vector<m3d::Vec3> fitPoints() const {
         std::vector<m3d::Vec3> pts{{0, 0, 0}, p1, p2};
         const m3d::Vec3 c = stats.centroid;
