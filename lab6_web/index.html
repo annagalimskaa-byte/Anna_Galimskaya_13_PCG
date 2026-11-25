@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ЛР 6 — Генератор 3D-детали, матрицы 4×4, Z-буфер</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --ink: #1d2330;
+    --muted: #6b7280;
+    --line: #e3e6eb;
+    --accent: #1f6feb;
+    --ok: #16794a;
+    --bad: #b3261e;
+    --axis: #d61e8c;
+    --radius: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 13.5px; }
+  header {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    padding: 12px 22px; background: var(--card); border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 650; }
+  header .sub { color: var(--muted); }
+  main {
+    display: grid; grid-template-columns: minmax(0, 1fr) 410px; gap: 14px;
+    padding: 14px 18px; height: calc(100vh - 50px); min-height: 640px;
+  }
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr; height: auto; }
+    .views { height: 90vh; }
+    .side { max-height: none !important; }
+  }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+  .views {
+    display: grid; grid-template-columns: 3fr 2fr; grid-template-rows: 3fr 2fr; gap: 10px; min-height: 0;
+  }
+  .view { position: relative; overflow: hidden; min-height: 0; }
+  .view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .view.persp canvas { cursor: grab; }
+  .view.persp canvas.dragging { cursor: grabbing; }
+  .side { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; padding-right: 4px; }
+  .side .card { padding: 10px 12px; }
+  .card h2 { font-size: 13.5px; margin: 0 0 8px; font-weight: 650; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .row:last-child { margin-bottom: 0; }
+  .row > .lbl { width: 80px; color: var(--muted); }
+  input[type=number] {
+    font: inherit; width: 64px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  input.wide { width: 110px; }
+  select, button.btn {
+    font: inherit; padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px;
+    background: #fff; color: var(--ink); cursor: pointer;
+  }
+  button.btn:hover { border-color: #c4c9d2; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.full { width: 100%; }
+  label.chk { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; user-select: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+  .params { color: var(--ink); line-height: 1.55; margin-top: 4px; }
+  .info { line-height: 1.6; }
+  .ok { color: var(--ok); font-weight: 650; }
+  .bad { color: var(--bad); font-weight: 650; }
+  .muted { color: var(--muted); font-size: 12px; }
+  table.matrix { width: 100%; border-collapse: collapse; font: 12.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  table.matrix td { border: 1px solid var(--line); padding: 4px 6px; text-align: right; font-variant-numeric: tabular-nums; }
+  table.matrix.small td { padding: 2px 4px; font-size: 11.5px; }
+  ol.history { margin: 6px 0 0; padding-left: 22px; max-height: 92px; overflow-y: auto; font-size: 12.5px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .nc { margin-top: 8px; display: none; }
+  .nc.show { display: block; }
+  .nc p { margin: 6px 0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Генератор невыпуклой 3D-детали</h1>
+  <span class="sub">Лабораторная работа 6 · Seed → косозубая шестерня с отверстием · матрицы 4×4 вручную · LookAt, перспектива, Z-буфер, Ламберт</span>
+</header>
+
+<main>
+  <section class="views">
+    <div class="card view persp"><canvas id="v0"></canvas></div>
+    <div class="card view"><canvas id="v1"></canvas></div>
+    <div class="card view"><canvas id="v2"></canvas></div>
+    <div class="card view"><canvas id="v3"></canvas></div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h2>Генерация детали по Seed</h2>
+      <div class="row">
+        <span class="lbl">Seed</span><input type="number" id="seed" class="wide" value="42" step="1">
+        <button class="btn primary" id="genBtn">Сгенерировать</button>
+      </div>
+      <div class="row">
+        <span class="lbl">Слоёв по Z</span><input type="number" id="layers" value="1" min="1" max="200" step="1"
+          title="1 — как в задании (передняя и задняя грань). Больше — плавная винтовая поверхность.">
+        <button class="btn" id="rndBtn">Случайный Seed</button>
+      </div>
+      <div class="params" id="params"></div>
+    </div>
+
+    <div class="card">
+      <h2>Информационная панель</h2>
+      <div class="info" id="topo"></div>
+      <div class="info" id="checksum"></div>
+    </div>
+
+    <div class="card">
+      <h2>Преобразования (M ← Op · M)</h2>
+      <div class="row"><span class="lbl">Перенос</span>
+        x<input type="number" id="tx" value="30" step="5"> y<input type="number" id="ty" value="0" step="5"> z<input type="number" id="tz" value="0" step="5">
+      </div>
+      <div class="row"><button class="btn full" id="tBtn">Применить перенос T(Δx, Δy, Δz)</button></div>
+      <div class="row"><span class="lbl">Масштаб</span>
+        x<input type="number" id="sx" value="1" step="0.1"> y<input type="number" id="sy" value="1" step="0.1"> z<input type="number" id="sz" value="1" step="0.1">
+      </div>
+      <div class="row"><button class="btn full" id="sBtn" title="Отрицательный коэффициент — зеркальное отражение">Применить масштаб S(Sx, Sy, Sz)</button></div>
+      <div class="row"><span class="lbl">Поворот</span>
+        <select id="rAxis"><option value="0">Ox</option><option value="1">Oy</option><option value="2" selected>Oz</option></select>
+        угол° <input type="number" id="rAngle" value="30" step="5">
+      </div>
+      <div class="row"><button class="btn full" id="rBtn">Применить поворот вокруг оси</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Вращение вокруг произвольной оси P1P2</h2>
+      <div class="row"><span class="lbl">P1</span>
+        x<input type="number" id="p1x" value="80" step="5"> y<input type="number" id="p1y" value="-120" step="5"> z<input type="number" id="p1z" value="20" step="5">
+      </div>
+      <div class="row"><span class="lbl">P2</span>
+        x<input type="number" id="p2x" value="80" step="5"> y<input type="number" id="p2y" value="120" step="5"> z<input type="number" id="p2z" value="60" step="5">
+      </div>
+      <div class="row"><span class="lbl">Угол θ°</span><input type="number" id="lAngle" value="15" step="5">
+        <button class="btn" id="lBtn">Повернуть вокруг P1P2</button>
+      </div>
+      <div class="row"><label class="chk"><input type="checkbox" id="animate"> Анимация</label>
+        <input type="number" id="speed" value="40" step="5"> °/с
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Результирующая матрица моделирования M (4×4)</h2>
+      <table class="matrix" id="matrix"></table>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="resetBtn" style="flex:2">Сброс преобразований (M = E)</button>
+        <button class="btn" id="ncBtn" style="flex:1" title="Перенос и поворот из полей выше в разном порядке">T·R ≠ R·T ?</button>
+      </div>
+      <div class="nc" id="nc"></div>
+      <div class="muted" style="margin-top:6px">Цепочка преобразований:</div>
+      <ol class="history" id="history"></ol>
+    </div>
+
+    <div class="card">
+      <h2>Отображение и освещение</h2>
+      <div class="grid2">
+        <label class="chk"><input type="checkbox" id="optFill" checked> Заливка (иначе каркас)</label>
+        <label class="chk"><input type="checkbox" id="optEdges" checked> Рёбра треугольников</label>
+        <label class="chk"><input type="checkbox" id="optCull" checked> Back-Face Culling</label>
+        <label class="chk"><input type="checkbox" id="optZ" checked> Z-буфер</label>
+        <label class="chk"><input type="checkbox" id="optLight" checked> Освещение (Ламберт)</label>
+        <label class="chk"><input type="checkbox" id="optGroups" checked> Цвета по типам граней</label>
+        <label class="chk"><input type="checkbox" id="optAxis" checked> Ось P1P2</label>
+        <label class="chk"><input type="checkbox" id="optWorld" checked> Оси координат</label>
+      </div>
+      <div class="row" style="margin-top:8px"><span class="lbl">Свет</span>
+        x<input type="number" id="lx" value="220" step="20"> y<input type="number" id="ly" value="260" step="20"> z<input type="number" id="lz" value="340" step="20">
+      </div>
+      <div class="muted">Цвета: <span style="color:#5482c4">■</span> внешние стенки, <span style="color:#e88c34">■</span> отверстие,
+        <span style="color:#62b27e">■</span> передняя грань (Z = 0), <span style="color:#a480ce">■</span> задняя (Z = H)</div>
+    </div>
+
+    <div class="card">
+      <h2>Камера (перспектива)</h2>
+      <div class="row">
+        FOV° <input type="number" id="fov" value="50" step="1" min="10" max="120">
+        Near <input type="number" id="near" value="1" step="0.5" min="0.1">
+        Far <input type="number" id="far" value="5000" step="100">
+        <button class="btn" id="camReset">Сброс</button>
+      </div>
+      <div class="muted">ЛКМ в главном окне — облёт, колесо — приближение, Shift + колесо — угол обзора.</div>
+    </div>
+  </aside>
+</main>
+
+<script src="math3d.js"></script>
+<script src="mesh.js"></script>
+<script src="renderer.js"></script>
+<script>
+'use strict';
+(() => {
+  const M = M3D, R = RENDER, $ = (id) => document.getElementById(id);
+  const num = (v, p = 3) => { if (Math.abs(v) < 0.5 * Math.pow(10, -p)) v = 0; return v.toFixed(p); };
+  const val = (id) => { const x = parseFloat($(id).value); return Number.isFinite(x) ? x : 0; };
+
+  // ---------- Сцена ----------
+  const scene = {
+    mesh: null, stats: null, model: M.identity(), world: [], history: [],
+    p1: M.vec3(80, -120, 20), p2: M.vec3(80, 120, 60),
+    camera: null,
+    options: { fill: true, edges: true, cull: true, zbuffer: true, lighting: true, groupColors: true,
+               light: M.vec3(220, 260, 340), ambient: 0.2 },
+    showAxisLine: true, showWorldAxes: true,
+  };
+  const defaultCamera = () => ({ target: M.vec3(0, 0, scene.mesh ? scene.mesh.params.H / 2 : 30),
+    yawDeg: 35, pitchDeg: 25, distance: 380, fovDeg: 50, zNear: 1, zFar: 5000 });
+
+  function updateWorld() {
+    const c = MESH.computeChecksum(scene.mesh, scene.model);
+    scene.world = c.world;
+    scene.stats.centroid = c.centroid;
+    scene.stats.area = c.area;
+    scene.stats.det = M.det3(scene.model);
+  }
+  function generate() {
+    const seed = Math.trunc(val('seed')), layers = Math.min(200, Math.max(1, Math.trunc(val('layers')) || 1));
+    $('seed').value = seed; $('layers').value = layers;
+    scene.mesh = MESH.generate(seed, layers);
+    scene.stats = MESH.computeStats(scene.mesh, scene.model);
+    if (!scene.camera) scene.camera = defaultCamera();
+    scene.camera.target = M.vec3(0, 0, scene.mesh.params.H / 2);
+    updateWorld();
+    refreshAll();
+  }
+  // M_new = Op · M_old
+  function apply(op, text) {
+    scene.model = M.mulMat(op, scene.model);
+    if (text) scene.history.push(text);
+    updateWorld();
+    refreshAll();
+  }
+  function fitPoints() {
+    const pts = [M.vec3(), scene.p1, scene.p2], c = scene.stats.centroid;
+    let r = 0;
+    for (const p of scene.world) r = Math.max(r, M.length(M.sub(p, c)));
+    for (const d of [M.vec3(1, 0, 0), M.vec3(0, 1, 0), M.vec3(0, 0, 1)]) {
+      pts.push(M.add(c, M.mul(d, r)), M.sub(c, M.mul(d, r)));
+    }
+    return pts;
+  }
+
+  // ---------- Окна просмотра ----------
+  const AXIS_COLOR = ['#cd3232', '#28963c', '#285ad2'], AXIS_NAME = ['X', 'Y', 'Z'];
+  const TITLES = ['Перспектива (LookAt + P·V·M)  ·  ЛКМ — облёт, колесо — приближение',
+                  'Вид спереди — проекция на Oxy', 'Вид сверху — проекция на Oxz', 'Вид слева — проекция на Oyz'];
+  const views = [0, 1, 2, 3].map((k) => ({ kind: k, canvas: $('v' + k), fb: new R.Framebuffer(),
+                                          off: document.createElement('canvas'), ms: 0 }));
+
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    for (const m of [1, 2, 5, 10]) if (m * p >= raw) return m * p;
+    return 10 * p;
+  }
+  const fmtTick = (v) => String(Math.abs(v) < 1e-9 ? 0 : +v.toPrecision(6));
+
+  function drawOrthoGrid(ctx, v, dpr, w, h) {
+    const ppu = v.pixelsPerUnit / dpr, ox = v.originX / dpr, oy = v.originY / dpr;
+    const step = niceStep(70 / ppu);
+    ctx.strokeStyle = '#eaecf0'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let k = Math.ceil(-ox / ppu / step); k * step <= (w - ox) / ppu; k++) {
+      const x = Math.round(ox + k * step * ppu) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, h);
+    }
+    for (let k = Math.ceil((oy - h) / ppu / step); k * step <= oy / ppu; k++) {
+      const y = Math.round(oy - k * step * ppu) + 0.5; ctx.moveTo(0, y); ctx.lineTo(w, y);
+    }
+    ctx.stroke();
+    const hc = AXIS_COLOR[v.hAxis], vc = AXIS_COLOR[v.vAxis];
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = hc; ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(w, oy); ctx.stroke();
+    ctx.strokeStyle = vc; ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, h); ctx.stroke();
+
+    ctx.font = '10.5px -apple-system, Segoe UI, Arial, sans-serif';
+    ctx.fillStyle = '#6e7480'; ctx.strokeStyle = '#6e7480'; ctx.lineWidth = 1;
+    for (let k = Math.ceil(-ox / ppu / step); k * step <= (w - ox) / ppu; k++) {
+      const x = ox + k * step * ppu;
+      if (k === 0 || x > w - 26 || x < 26) continue;
+      ctx.beginPath(); ctx.moveTo(x, oy - 3); ctx.lineTo(x, oy + 3); ctx.stroke();
+      ctx.fillText(fmtTick(k * step * v.hSign), x + 2, oy + 13);
+    }
+    for (let k = Math.ceil((oy - h) / ppu / step); k * step <= oy / ppu; k++) {
+      const y = oy - k * step * ppu;
+      if (k === 0 || y < 52 || y > h - 26) continue;
+      ctx.beginPath(); ctx.moveTo(ox - 3, y); ctx.lineTo(ox + 3, y); ctx.stroke();
+      ctx.fillText(fmtTick(k * step * v.vSign), ox + 5, y - 2);
+    }
+    ctx.fillText('0', ox + 4, oy + 13);
+    const arrow = (tx, ty, dx, dy, c) => {
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - dx * 9 - dy * 4, ty - dy * 9 + dx * 4); ctx.lineTo(tx - dx * 9 + dy * 4, ty - dy * 9 - dx * 4);
+      ctx.closePath(); ctx.fill();
+    };
+    ctx.font = 'bold 12.5px -apple-system, Segoe UI, Arial, sans-serif';
+    const hRight = v.hSign > 0;
+    arrow(hRight ? w - 4 : 4, oy, hRight ? 1 : -1, 0, hc);
+    ctx.fillStyle = hc; ctx.fillText(AXIS_NAME[v.hAxis], hRight ? w - 18 : 8, oy - 8);
+    const vUp = v.vSign > 0;
+    arrow(ox, vUp ? 4 : h - 4, 0, vUp ? -1 : 1, vc);
+    ctx.fillStyle = vc; ctx.fillText(AXIS_NAME[v.vAxis], ox + 8, vUp ? 46 : h - 10);
+    ctx.font = '10.5px -apple-system, Segoe UI, Arial, sans-serif';
+    ctx.fillStyle = '#82889a'; ctx.fillText('шаг сетки: ' + fmtTick(step), 8, h - 8);
+  }
+
+  function drawOverlay(ctx, v, dpr, kind, w, h) {
+    const proj = (p) => { const s = R.project(v, p); return { ok: s.visible, x: s.x / dpr, y: s.y / dpr }; };
+    ctx.font = 'bold 12.5px -apple-system, Segoe UI, Arial, sans-serif';
+    if (kind === 0 && scene.showWorldAxes) {
+      [M.vec3(150, 0, 0), M.vec3(0, 150, 0), M.vec3(0, 0, 150)].forEach((t, i) => {
+        const q = proj(t); if (q.ok) { ctx.fillStyle = AXIS_COLOR[i]; ctx.fillText(AXIS_NAME[i], q.x - 4, q.y + 4); }
+      });
+    }
+    if (scene.showAxisLine) {
+      [scene.p1, scene.p2].forEach((p, i) => {
+        const q = proj(p); if (!q.ok) return;
+        ctx.beginPath(); ctx.arc(q.x, q.y, 4.5, 0, 2 * Math.PI);
+        ctx.fillStyle = '#d61e8c'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+        ctx.fillStyle = '#d61e8c'; ctx.fillText(i ? 'P2' : 'P1', q.x + 7, q.y - 6);
+      });
+    }
+    if (scene.options.lighting) {
+      const q = proj(scene.options.light);
+      if (q.ok && q.x >= 0 && q.y >= 0 && q.x <= w && q.y <= h) {
+        ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ffd228'; ctx.fill(); ctx.strokeStyle = '#c88c00'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.beginPath();
+        for (let k = 0; k < 8; k++) {
+          const a = k * Math.PI / 4;
+          ctx.moveTo(q.x + Math.cos(a) * 8, q.y + Math.sin(a) * 8); ctx.lineTo(q.x + Math.cos(a) * 12, q.y + Math.sin(a) * 12);
+        }
+        ctx.stroke();
+      }
+    }
+    const t = TITLES[kind];
+    ctx.font = '600 12.5px -apple-system, Segoe UI, Arial, sans-serif';
+    const tw = ctx.measureText(t).width;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(8, 8, tw + 12, 22, 5) : ctx.rect(8, 8, tw + 12, 22); ctx.fill();
+    ctx.fillStyle = '#2d3442'; ctx.fillText(t, 14, 23);
+  }
+
+  function renderView(vw) {
+    const t0 = performance.now();
+    const cv = vw.canvas, w = cv.clientWidth, h = cv.clientHeight;
+    if (w < 2 || h < 2) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const W = Math.round(w * dpr), H = Math.round(h * dpr);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    if (vw.fb.width !== W || vw.fb.height !== H) {
+      vw.fb.resize(W, H); vw.off.width = W; vw.off.height = H; vw.img = new ImageData(W, H);
+    } else vw.fb.clear();
+
+    const v = vw.kind === 0 ? R.makePerspectiveView(scene.camera, W, H) : R.makeOrthoView(vw.kind, W, H, fitPoints());
+    R.drawMesh(vw.fb, v, scene.mesh, scene.world, scene.stats.det, scene.options);
+    if (scene.showWorldAxes && vw.kind === 0) {
+      const L = 140;
+      R.drawLine3D(vw.fb, v, M.vec3(), M.vec3(L, 0, 0), R.rgba(205, 50, 50), R.rgba(205, 50, 50, 70), 0, 2);
+      R.drawLine3D(vw.fb, v, M.vec3(), M.vec3(0, L, 0), R.rgba(40, 150, 60), R.rgba(40, 150, 60, 70), 0, 2);
+      R.drawLine3D(vw.fb, v, M.vec3(), M.vec3(0, 0, L), R.rgba(40, 90, 210), R.rgba(40, 90, 210, 70), 0, 2);
+    }
+    if (scene.showAxisLine) {   // ось P1P2 — пунктир, закрытые деталью участки бледнее
+      const d = M.sub(scene.p2, scene.p1);
+      R.drawLine3D(vw.fb, v, M.sub(scene.p1, M.mul(d, 0.6)), M.add(scene.p2, M.mul(d, 0.6)),
+                   R.rgba(214, 30, 140), R.rgba(214, 30, 140, 80), 9 * dpr, Math.max(2, Math.round(2 * dpr)));
+    }
+    new Uint32Array(vw.img.data.buffer).set(vw.fb.color);
+    vw.off.getContext('2d').putImageData(vw.img, 0, 0);
+
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = vw.kind === 0 ? '#f6f8fb' : '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    if (vw.kind !== 0) drawOrthoGrid(ctx, v, dpr, w, h);
+    ctx.drawImage(vw.off, 0, 0, w, h);
+    drawOverlay(ctx, v, dpr, vw.kind, w, h);
+    vw.ms = performance.now() - t0;
+  }
+
+  // ---------- Панель ----------
+  function refreshInfo() {
+    const p = scene.mesh.params, st = scene.stats;
+    $('params').innerHTML =
+      `N = <b>${p.N}</b> зубьев, M = <b>${p.M}</b> (отверстие)<br>` +
+      `R<sub>out</sub> = ${num(p.rOut, 1)}, R<sub>in</sub> = ${num(p.rIn, 2)}, r<sub>hole</sub> = ${num(p.rHole, 2)}<br>` +
+      `Δx = ${num(p.dx, 2)}, Δy = ${num(p.dy, 2)}, H = ${num(p.H, 2)}<br>` +
+      `α<sub>twist</sub> = ${num(p.twistDeg, 2)}°, k<sub>taper</sub> = ${num(p.taper, 3)}`;
+    const ok = st.euler === 0;
+    $('topo').innerHTML =
+      `V = <b>${st.V}</b>, E = <b>${st.E}</b>, F = <b>${st.F}</b><br>` +
+      `V − E + F = ${st.V} − ${st.E} + ${st.F} = <span class="${ok ? 'ok' : 'bad'}">${st.euler} ${ok ? '✓' : '✗'}</span> (2 − 2g, g = 1)<br>` +
+      `Замкнутость (каждое ребро — в 2 гранях): <span class="${st.closedManifold ? 'ok' : 'bad'}">${st.closedManifold ? 'да ✓' : 'нет ✗'}</span>`;
+    const c = st.centroid;
+    $('checksum').innerHTML =
+      `Центр масс C = (<b>${num(c.x)}</b>; <b>${num(c.y)}</b>; <b>${num(c.z)}</b>)<br>` +
+      `Площадь поверхности S = <b>${num(st.area, 2)}</b><br>` +
+      `det M<sub>3×3</sub> = ${num(st.det, 4)}${st.det < 0 ? ' — <b>зеркальное отражение</b> (нормали развёрнуты)' : ''}<br>` +
+      `<span class="muted">Кадр перспективы: ${num(views[0].ms, 1)} мс, камера: d = ${num(scene.camera.distance, 0)}, FOV = ${num(scene.camera.fovDeg, 0)}°</span>`;
+  }
+  const matrixHtml = (m, digits = 4) => {
+    let s = '';
+    for (let i = 0; i < 4; i++) { s += '<tr>'; for (let j = 0; j < 4; j++) s += `<td>${num(m[i * 4 + j], digits)}</td>`; s += '</tr>'; }
+    return s;
+  };
+  let historyShown = -1;
+  function refreshMatrix() {
+    $('matrix').innerHTML = matrixHtml(scene.model);
+    if (historyShown !== scene.history.length) {
+      $('history').innerHTML = scene.history.map((h) => `<li>${h}</li>`).join('');
+      $('history').scrollTop = 1e9;
+      historyShown = scene.history.length;
+    }
+  }
+
+  let dirty = [true, true, true, true];
+  function refreshAll() { dirty = [true, true, true, true]; refreshMatrix(); refreshInfo(); schedule(); }
+  let frameRequested = false;
+  function schedule() { if (!frameRequested) { frameRequested = true; requestAnimationFrame(frame); } }
+
+  // ---------- Анимация вокруг P1P2 ----------
+  let animating = false, lastT = 0, animAngle = 0;
+  function frame(t) {
+    frameRequested = false;
+    if (animating) {
+      const dt = lastT ? (t - lastT) / 1000 : 0;
+      lastT = t;
+      const a = val('speed') * dt;
+      animAngle += a;
+      scene.model = M.mulMat(M.rotationAroundLine(scene.p1, scene.p2, a), scene.model);
+      updateWorld();
+      dirty = [true, true, true, true];
+      refreshMatrix();
+    }
+    views.forEach((vw, k) => { if (dirty[k]) { renderView(vw); dirty[k] = false; } });
+    refreshInfo();
+    if (animating) schedule();
+  }
+
+  function readAxis() {
+    const p1 = M.vec3(val('p1x'), val('p1y'), val('p1z')), p2 = M.vec3(val('p2x'), val('p2y'), val('p2z'));
+    return M.length(M.sub(p2, p1)) > 1e-9 ? { p1, p2 } : null;
+  }
+  function rotationFromInputs() {
+    const a = val('rAngle'), axis = +$('rAxis').value;
+    return { R: [M.rotationX, M.rotationY, M.rotationZ][axis](a), name: `R${'xyz'[axis]}(${a}°)` };
+  }
+
+  $('genBtn').onclick = generate;
+  $('seed').addEventListener('change', generate);
+  $('seed').addEventListener('keydown', (e) => { if (e.key === 'Enter') generate(); });
+  $('layers').addEventListener('change', generate);
+  $('rndBtn').onclick = () => { $('seed').value = Math.floor(Math.random() * 100000); generate(); };
+  $('tBtn').onclick = () => {
+    const dx = val('tx'), dy = val('ty'), dz = val('tz');
+    apply(M.translation(dx, dy, dz), `T(${dx}, ${dy}, ${dz})`);
+  };
+  $('sBtn').onclick = () => {
+    const sx = val('sx'), sy = val('sy'), sz = val('sz');
+    if (Math.abs(sx * sy * sz) < 1e-9) { alert('Коэффициенты масштабирования не должны быть равны нулю.'); return; }
+    apply(M.scaling(sx, sy, sz), `S(${sx}, ${sy}, ${sz})`);
+  };
+  $('rBtn').onclick = () => { const r = rotationFromInputs(); apply(r.R, r.name); };
+  $('lBtn').onclick = () => {
+    const ax = readAxis();
+    if (!ax) { alert('Точки P1 и P2 совпадают — ось не задана.'); return; }
+    const a = val('lAngle');
+    apply(M.rotationAroundLine(ax.p1, ax.p2, a), `R_P1P2(${a}°)`);
+  };
+  $('animate').onchange = () => {
+    if ($('animate').checked) {
+      if (!readAxis()) { $('animate').checked = false; return; }
+      animating = true; lastT = 0; animAngle = 0; schedule();
+    } else {
+      animating = false;
+      if (Math.abs(animAngle) > 1e-9) scene.history.push(`R_P1P2(${num(animAngle % 360, 1)}°) — анимация`);
+      animAngle = 0;
+      refreshAll();
+    }
+  };
+  $('resetBtn').onclick = () => {
+    if (animating) { $('animate').checked = false; animating = false; animAngle = 0; }
+    scene.model = M.identity(); scene.history = []; updateWorld(); refreshAll();
+  };
+  $('ncBtn').onclick = () => {
+    const T = M.translation(val('tx'), val('ty'), val('tz')), r = rotationFromInputs();
+    const TR = M.mulMat(T, r.R), RT = M.mulMat(r.R, T), q = M.vec3(100, 0, 0);
+    const q1 = M.transformPoint(TR, q), q2 = M.transformPoint(RT, q), d = M.maxAbsDiff(TR, RT);
+    $('nc').innerHTML =
+      `<p>Перенос T из полей выше и поворот ${r.name}.</p>` +
+      `<p><b>T · R</b> (сначала поворот, затем перенос):</p><table class="matrix small">${matrixHtml(TR, 3)}</table>` +
+      `<p><b>R · T</b> (сначала перенос, затем поворот):</p><table class="matrix small">${matrixHtml(RT, 3)}</table>` +
+      `<p>Точка (100, 0, 0): T·R → (${num(q1.x, 2)}, ${num(q1.y, 2)}, ${num(q1.z, 2)}), R·T → (${num(q2.x, 2)}, ${num(q2.y, 2)}, ${num(q2.z, 2)})</p>` +
+      (d > 1e-9 ? `<p class="bad">max |T·R − R·T| = ${num(d)} — матрицы различны, умножение некоммутативно.</p>`
+                : `<p class="ok">Матрицы совпали (например, при нулевом переносе или угле).</p>`);
+    $('nc').classList.toggle('show');
+  };
+
+  function optionsChanged() {
+    const o = scene.options;
+    o.fill = $('optFill').checked; o.edges = $('optEdges').checked; o.cull = $('optCull').checked;
+    o.zbuffer = $('optZ').checked; o.lighting = $('optLight').checked; o.groupColors = $('optGroups').checked;
+    o.light = M.vec3(val('lx'), val('ly'), val('lz'));
+    scene.showAxisLine = $('optAxis').checked; scene.showWorldAxes = $('optWorld').checked;
+    const ax = readAxis();
+    if (ax) { scene.p1 = ax.p1; scene.p2 = ax.p2; }
+    scene.camera.fovDeg = Math.min(120, Math.max(10, val('fov')));
+    scene.camera.zNear = Math.max(0.1, val('near'));
+    scene.camera.zFar = Math.max(val('far'), scene.camera.zNear + 1);
+    refreshAll();
+  }
+  ['optFill', 'optEdges', 'optCull', 'optZ', 'optLight', 'optGroups', 'optAxis', 'optWorld',
+   'lx', 'ly', 'lz', 'p1x', 'p1y', 'p1z', 'p2x', 'p2y', 'p2z', 'fov', 'near', 'far']
+    .forEach((id) => $(id).addEventListener(id.startsWith('opt') ? 'change' : 'input', optionsChanged));
+  $('camReset').onclick = () => {
+    scene.camera = defaultCamera();
+    $('fov').value = scene.camera.fovDeg; $('near').value = scene.camera.zNear; $('far').value = scene.camera.zFar;
+    refreshAll();
+  };
+
+  // ---------- Мышь: орбитальный облёт и приближение ----------
+  const pc = $('v0');
+  let drag = null;
+  pc.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    drag = { x: e.clientX, y: e.clientY }; pc.setPointerCapture(e.pointerId); pc.classList.add('dragging');
+  });
+  pc.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag = { x: e.clientX, y: e.clientY };
+    scene.camera.yawDeg -= dx * 0.4;
+    scene.camera.pitchDeg = Math.min(89, Math.max(-89, scene.camera.pitchDeg + dy * 0.4));
+    dirty[0] = true; schedule();
+  });
+  const endDrag = () => { drag = null; pc.classList.remove('dragging'); };
+  pc.addEventListener('pointerup', endDrag);
+  pc.addEventListener('pointercancel', endDrag);
+  pc.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+    const steps = -delta / (e.deltaMode === 1 ? 3 : 100);
+    if (e.shiftKey) {
+      scene.camera.fovDeg = Math.min(120, Math.max(10, scene.camera.fovDeg - steps * 3));
+      $('fov').value = num(scene.camera.fovDeg, 0);
+    } else {
+      scene.camera.distance = Math.min(4000, Math.max(40, scene.camera.distance * Math.pow(0.88, steps)));
+    }
+    dirty[0] = true; schedule();
+  }, { passive: false });
+
+  new ResizeObserver(() => { dirty = [true, true, true, true]; schedule(); }).observe(document.querySelector('.views'));
+
+  generate();
+})();
+</script>
+</body>
+</html>
