@@ -123,7 +123,6 @@ Mat4 rotationAxisOrigin(Vec3 u, double deg) {
     u = normalize(u);
     const double c = std::cos(deg2rad(deg)), s = std::sin(deg2rad(deg)), t = 1.0 - c;
     const double x = u.x, y = u.y, z = u.z;
-    // R = cos(θ)·E + (1 − cos θ)·u·uᵀ + sin(θ)·[u]×
     Mat4 r = Mat4::identity();
     r.m[0][0] = c + t * x * x;     r.m[0][1] = t * x * y - s * z; r.m[0][2] = t * x * z + s * y;
     r.m[1][0] = t * x * y + s * z; r.m[1][1] = c + t * y * y;     r.m[1][2] = t * y * z - s * x;
@@ -141,18 +140,15 @@ Mat4 rotationAroundLineComposite(Vec3 p1, Vec3 p2, double deg) {
     const double a = u.x, b = u.y, c = u.z;
     const double d = std::sqrt(b * b + c * c);
 
-    // Rx: поворот вокруг Ox, переводящий u в плоскость Oxz (cos = c/d, sin = b/d)
     Mat4 rx = Mat4::identity();
     if (d > 1e-12) {
         rx.m[1][1] = c / d;  rx.m[1][2] = -b / d;
         rx.m[2][1] = b / d;  rx.m[2][2] = c / d;
     }
-    // Ry: поворот вокруг Oy, совмещающий (a, 0, d) с осью Oz (cos = d, sin = −a)
     Mat4 ry = Mat4::identity();
     ry.m[0][0] = d;   ry.m[0][2] = -a;
     ry.m[2][0] = a;   ry.m[2][2] = d;
 
-    // Обратные повороты = транспонированные матрицы
     Mat4 rxInv = rx, ryInv = ry;
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j) {
@@ -163,9 +159,9 @@ Mat4 rotationAroundLineComposite(Vec3 p1, Vec3 p2, double deg) {
 }
 
 Mat4 lookAt(Vec3 eye, Vec3 target, Vec3 up) {
-    const Vec3 f = normalize(target - eye);  // Forward
-    const Vec3 r = normalize(cross(f, up));  // Right
-    const Vec3 u = cross(r, f);              // Up (ортогонализированный)
+    const Vec3 f = normalize(target - eye);
+    const Vec3 r = normalize(cross(f, up));
+    const Vec3 u = cross(r, f);
     Mat4 v = Mat4::identity();
     v.m[0][0] = r.x;  v.m[0][1] = r.y;  v.m[0][2] = r.z;  v.m[0][3] = -dot(r, eye);
     v.m[1][0] = u.x;  v.m[1][1] = u.y;  v.m[1][2] = u.z;  v.m[1][3] = -dot(u, eye);
@@ -208,4 +204,4 @@ std::string toString(const Mat4& a, int precision) {
     return s;
 }
 
-}  // namespace m3d
+}

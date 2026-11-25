@@ -42,7 +42,6 @@ QDoubleSpinBox* spin(double min, double max, double value, double step, int deci
     return s;
 }
 
-// Строка «x [ ] y [ ] z [ ]»
 QWidget* xyzRow(QDoubleSpinBox* (&boxes)[3], double min, double max, const double values[3], double step,
                 int decimals = 1) {
     auto* w = new QWidget;
@@ -73,7 +72,7 @@ QString matrixHtml(const Mat4& m) {
     return s + "</table>";
 }
 
-}  // namespace
+}
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle("Лабораторная работа 6 — генератор 3D-детали, матрицы 4×4, Z-буфер");
@@ -133,7 +132,6 @@ QWidget* MainWindow::buildSidePanel() {
     auto* lay = new QVBoxLayout(panel);
     lay->setSpacing(8);
 
-    // --- Генерация ---
     auto* gen = new QGroupBox("Генерация детали по Seed");
     auto* gl = new QGridLayout(gen);
     seed_ = new QSpinBox;
@@ -162,7 +160,6 @@ QWidget* MainWindow::buildSidePanel() {
     connect(layers_, &QSpinBox::valueChanged, this, &MainWindow::generate);
     lay->addWidget(gen);
 
-    // --- Самодиагностика ---
     auto* diag = new QGroupBox("Информационная панель");
     auto* dl = new QVBoxLayout(diag);
     topoLabel_ = new QLabel;
@@ -174,7 +171,6 @@ QWidget* MainWindow::buildSidePanel() {
     dl->addWidget(checksumLabel_);
     lay->addWidget(diag);
 
-    // --- Преобразования ---
     auto* tr = new QGroupBox("Преобразования (M ← Op · M)");
     auto* tl = new QFormLayout(tr);
     const double one3[3] = {1, 1, 1};
@@ -204,7 +200,6 @@ QWidget* MainWindow::buildSidePanel() {
     connect(rBtn, &QPushButton::clicked, this, &MainWindow::applyAxisRotation);
     lay->addWidget(tr);
 
-    // --- Произвольная ось ---
     auto* ax = new QGroupBox("Вращение вокруг произвольной оси P1P2");
     auto* al = new QFormLayout(ax);
     const double p1v[3] = {scene_.p1.x, scene_.p1.y, scene_.p1.z};
@@ -232,7 +227,6 @@ QWidget* MainWindow::buildSidePanel() {
     }
     lay->addWidget(ax);
 
-    // --- Матрица ---
     auto* mx = new QGroupBox("Результирующая матрица моделирования M (4×4)");
     auto* ml = new QVBoxLayout(mx);
     matrix_ = new QTableWidget(4, 4);
@@ -268,7 +262,6 @@ QWidget* MainWindow::buildSidePanel() {
     connect(ncBtn, &QPushButton::clicked, this, &MainWindow::showNonCommutativity);
     lay->addWidget(mx);
 
-    // --- Отображение ---
     auto* vis = new QGroupBox("Отображение и освещение");
     auto* vl = new QGridLayout(vis);
     auto mk = [&](const QString& text, bool on) {
@@ -299,7 +292,6 @@ QWidget* MainWindow::buildSidePanel() {
     for (auto* b : lightPos_) connect(b, &QDoubleSpinBox::valueChanged, this, [this] { optionsChanged(); });
     lay->addWidget(vis);
 
-    // --- Камера ---
     auto* cam = new QGroupBox("Камера (перспектива)");
     auto* cl = new QHBoxLayout(cam);
     fov_ = spin(10, 120, scene_.camera.fovDeg, 1, 0);

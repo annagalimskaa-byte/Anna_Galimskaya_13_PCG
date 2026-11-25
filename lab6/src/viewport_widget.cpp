@@ -26,7 +26,7 @@ QString fmtTick(double v) {
 const QColor kAxisColor[3] = {QColor(205, 50, 50), QColor(40, 150, 60), QColor(40, 90, 210)};
 const char* kAxisName[3] = {"X", "Y", "Z"};
 
-}  // namespace
+}
 
 ViewportWidget::ViewportWidget(Scene* scene, render::ViewKind kind, QWidget* parent)
     : QWidget(parent), scene_(scene), kind_(kind) {
@@ -58,17 +58,14 @@ void ViewportWidget::paintEvent(QPaintEvent*) {
                                ? scene_->camera.makeView(W, H)
                                : render::makeOrthoView(kind_, W, H, scene_->fitPoints());
 
-    // 1. Деталь: Back-Face Culling + Z-буфер + Ламберт
     render::drawMesh(fb_, v, scene_->mesh, scene_->world, scene_->stats.det, scene_->options);
 
-    // 2. Мировые оси (в перспективе — отрезками с проверкой глубины)
     if (scene_->showWorldAxes && kind_ == render::ViewKind::Perspective) {
         const double len = 140;
         render::drawLine3D(fb_, v, {0, 0, 0}, {len, 0, 0}, render::rgba(205, 50, 50), render::rgba(205, 50, 50, 70), 0, 2);
         render::drawLine3D(fb_, v, {0, 0, 0}, {0, len, 0}, render::rgba(40, 150, 60), render::rgba(40, 150, 60, 70), 0, 2);
         render::drawLine3D(fb_, v, {0, 0, 0}, {0, 0, len}, render::rgba(40, 90, 210), render::rgba(40, 90, 210, 70), 0, 2);
     }
-    // 3. Ось вращения P1P2 — пунктир; закрытые деталью участки — бледнее
     if (scene_->showAxisLine) {
         const m3d::Vec3 d = scene_->p2 - scene_->p1;
         render::drawLine3D(fb_, v, scene_->p1 - d * 0.6, scene_->p2 + d * 0.6, render::rgba(214, 30, 140),
@@ -100,7 +97,6 @@ void ViewportWidget::drawOrthoGrid(QPainter& p, const render::View& v, double dp
     small.setPointSizeF(std::max(7.0, small.pointSizeF() - 2));
     p.setFont(small);
 
-    // Сетка
     p.setPen(QPen(QColor(234, 236, 240), 1));
     for (long k = static_cast<long>(std::ceil(-ox / ppu / step)); k * step <= (w - ox) / ppu; ++k) {
         const double x = ox + k * step * ppu;
@@ -110,14 +106,12 @@ void ViewportWidget::drawOrthoGrid(QPainter& p, const render::View& v, double dp
         const double y = oy - k * step * ppu;
         p.drawLine(QPointF(0, y), QPointF(w, y));
     }
-    // Оси
     const QColor hc = kAxisColor[v.hAxis], vc = kAxisColor[v.vAxis];
     p.setPen(QPen(hc, 1.4));
     p.drawLine(QPointF(0, oy), QPointF(w, oy));
     p.setPen(QPen(vc, 1.4));
     p.drawLine(QPointF(ox, 0), QPointF(ox, h));
 
-    // Деления и подписи масштаба
     p.setPen(QColor(110, 116, 128));
     for (long k = static_cast<long>(std::ceil(-ox / ppu / step)); k * step <= (w - ox) / ppu; ++k) {
         const double x = ox + k * step * ppu;
@@ -133,7 +127,6 @@ void ViewportWidget::drawOrthoGrid(QPainter& p, const render::View& v, double dp
     }
     p.drawText(QPointF(ox + 4, oy + 13), "0");
 
-    // Названия осей со стрелками
     QFont bold = font();
     bold.setBold(true);
     p.setFont(bold);
@@ -172,7 +165,6 @@ void ViewportWidget::drawOverlay(QPainter& p, const render::View& v, double dpr)
     bold.setBold(true);
     p.setFont(bold);
 
-    // Подписи осей в перспективе
     if (kind_ == render::ViewKind::Perspective && scene_->showWorldAxes) {
         const m3d::Vec3 tips[3] = {{150, 0, 0}, {0, 150, 0}, {0, 0, 150}};
         for (int i = 0; i < 3; ++i) {
@@ -183,7 +175,6 @@ void ViewportWidget::drawOverlay(QPainter& p, const render::View& v, double dpr)
             }
         }
     }
-    // Точки P1, P2
     if (scene_->showAxisLine) {
         const QColor c(214, 30, 140);
         const m3d::Vec3 pts[2] = {scene_->p1, scene_->p2};
@@ -197,7 +188,6 @@ void ViewportWidget::drawOverlay(QPainter& p, const render::View& v, double dpr)
             p.drawText(q + QPointF(7, -6), i == 0 ? "P1" : "P2");
         }
     }
-    // Источник света
     if (scene_->options.lighting) {
         QPointF q;
         if (proj(scene_->options.light, q) && rect().contains(q.toPoint())) {
@@ -210,7 +200,6 @@ void ViewportWidget::drawOverlay(QPainter& p, const render::View& v, double dpr)
             }
         }
     }
-    // Заголовок окна
     const QString t = title();
     QFont tf = font();
     tf.setBold(true);
@@ -238,7 +227,7 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent* e) {
     const QPoint d = pos - lastMouse_;
     lastMouse_ = pos;
     auto& cam = scene_->camera;
-    cam.yawDeg -= d.x() * 0.4;  // орбитальный облёт вокруг Target
+    cam.yawDeg -= d.x() * 0.4;
     cam.pitchDeg = std::clamp(cam.pitchDeg + d.y() * 0.4, -89.0, 89.0);
     update();
     emit cameraChanged();
@@ -253,10 +242,9 @@ void ViewportWidget::mouseReleaseEvent(QMouseEvent*) {
 void ViewportWidget::wheelEvent(QWheelEvent* e) {
     if (kind_ != render::ViewKind::Perspective) return;
     auto& cam = scene_->camera;
-    // на macOS Shift превращает вертикальную прокрутку в горизонтальную
     const QPoint ad = e->angleDelta();
     const double steps = (ad.y() != 0 ? ad.y() : ad.x()) / 120.0;
-    if (e->modifiers() & Qt::ShiftModifier)  // Shift + колесо — угол обзора (фокусное расстояние)
+    if (e->modifiers() & Qt::ShiftModifier)
         cam.fovDeg = std::clamp(cam.fovDeg - steps * 3.0, 10.0, 120.0);
     else
         cam.distance = std::clamp(cam.distance * std::pow(0.88, steps), 40.0, 4000.0);

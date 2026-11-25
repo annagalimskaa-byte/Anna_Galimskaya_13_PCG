@@ -34,11 +34,11 @@ struct ScreenVtx {
 };
 
 ScreenVtx toScreen(const View& v, Vec4 clip) {
-    const Vec3 ndc = m3d::perspectiveDivide(clip);  // перспективное деление на w
+    const Vec3 ndc = m3d::perspectiveDivide(clip);
     return {(ndc.x + 1.0) * 0.5 * v.width, (1.0 - ndc.y) * 0.5 * v.height, ndc.z};
 }
 
-inline double nearDist(Vec4 c) { return c.z + c.w; }  // ближняя плоскость: z_clip ≥ −w
+inline double nearDist(Vec4 c) { return c.z + c.w; }
 
 Vec4 lerp4(Vec4 a, Vec4 b, double t) {
     return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t};
@@ -61,8 +61,6 @@ uint32_t shade(int r, int g, int b, double k) {
     return rgba(static_cast<int>(r * k), static_cast<int>(g * k), static_cast<int>(b * k));
 }
 
-// Растеризация треугольника по барицентрическим координатам.
-// edgeMask: бит 0 — ребро ab, бит 1 — bc, бит 2 — ca (рисуются поверх заливки).
 void rasterTriangle(Framebuffer& fb, ScreenVtx a, ScreenVtx b, ScreenVtx c, uint32_t col,
                     uint32_t edgeCol, int edgeMask, bool ztest) {
     const double area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
@@ -81,20 +79,20 @@ void rasterTriangle(Framebuffer& fb, ScreenVtx a, ScreenVtx b, ScreenVtx c, uint
         const double py = y + 0.5;
         for (int x = x0; x <= x1; ++x) {
             const double px = x + 0.5;
-            const double wa = (c.x - b.x) * (py - b.y) - (c.y - b.y) * (px - b.x);  // напротив a (ребро bc)
-            const double wb = (a.x - c.x) * (py - c.y) - (a.y - c.y) * (px - c.x);  // ребро ca
-            const double wc = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);  // ребро ab
+            const double wa = (c.x - b.x) * (py - b.y) - (c.y - b.y) * (px - b.x);
+            const double wb = (a.x - c.x) * (py - c.y) - (a.y - c.y) * (px - c.x);
+            const double wc = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
             const double ba = wa * inv, bb = wb * inv, bc = wc * inv;
             if (ba < -1e-9 || bb < -1e-9 || bc < -1e-9) continue;
             const double z = ba * a.z + bb * b.z + bc * c.z;
             const size_t idx = static_cast<size_t>(y) * fb.width + x;
             if (ztest) {
-                if (z >= fb.depth[idx]) continue;  // тест глубины
+                if (z >= fb.depth[idx]) continue;
                 fb.depth[idx] = static_cast<float>(z);
             }
             uint32_t out = col;
             if (edgeMask) {
-                double d = 1e9;  // расстояние до ближайшего отображаемого ребра в пикселях
+                double d = 1e9;
                 if ((edgeMask & 1) && lab > 0) d = std::min(d, std::fabs(wc) / lab);
                 if ((edgeMask & 2) && lbc > 0) d = std::min(d, std::fabs(wa) / lbc);
                 if ((edgeMask & 4) && lca > 0) d = std::min(d, std::fabs(wb) / lca);
@@ -111,7 +109,7 @@ void putPixel(Framebuffer& fb, int x, int y, uint32_t col, double alpha) {
     fb.color[idx] = blend(fb.color[idx], col, alpha);
 }
 
-}  // namespace
+}
 
 ScreenPoint project(const View& v, Vec3 world) {
     const Vec4 c = v.projView * m3d::toVec4(world);
@@ -140,10 +138,10 @@ Vec3 faceNormal(Vec3 a, Vec3 b, Vec3 c, double det) {
 FrameStats drawMesh(Framebuffer& fb, const View& v, const mesh::Mesh& mesh, const std::vector<Vec3>& world,
                     double det, const Options& opt) {
     static const int kColors[4][3] = {
-        {84, 130, 196},   // внешние стенки
-        {232, 140, 52},   // стенки отверстия
-        {98, 178, 126},   // передняя крышка
-        {164, 128, 206},  // задняя крышка
+        {84, 130, 196},
+        {232, 140, 52},
+        {98, 178, 126},
+        {164, 128, 206},
     };
     FrameStats st;
     const uint32_t wireCol = rgba(40, 60, 90);
@@ -153,13 +151,12 @@ FrameStats drawMesh(Framebuffer& fb, const View& v, const mesh::Mesh& mesh, cons
         const Vec3 a = world[tri[0]], b = world[tri[1]], c = world[tri[2]];
         const Vec3 n = faceNormal(a, b, c, det);
 
-        // Back-Face Culling: N · V_cam ≤ 0 — грань повёрнута от наблюдателя
         if (opt.cull && m3d::dot(n, v.directionToViewer(a)) <= 0) {
             ++st.culled;
             continue;
         }
 
-        if (!opt.fill) {  // каркасный режим
+        if (!opt.fill) {
             drawLine3D(fb, v, a, b, wireCol, 0, 0, 1);
             drawLine3D(fb, v, b, c, wireCol, 0, 0, 1);
             drawLine3D(fb, v, c, a, wireCol, 0, 0, 1);
@@ -167,7 +164,6 @@ FrameStats drawMesh(Framebuffer& fb, const View& v, const mesh::Mesh& mesh, cons
             continue;
         }
 
-        // Плоское освещение по Ламберту: I = ambient + (1 − ambient) · max(0, N · L)
         const int g = opt.groupColors ? static_cast<int>(mesh.groups[t]) : 0;
         const int* base = kColors[g];
         double k = 1.0;
@@ -179,10 +175,9 @@ FrameStats drawMesh(Framebuffer& fb, const View& v, const mesh::Mesh& mesh, cons
         const uint32_t col = shade(base[0], base[1], base[2], k);
         const uint32_t edgeCol = shade(base[0], base[1], base[2], k * 0.45);
 
-        // Отсечение по ближней плоскости (в пространстве отсечения), затем веер треугольников
         ClipVtx in[3] = {{v.projView * m3d::toVec4(a)}, {v.projView * m3d::toVec4(b)}, {v.projView * m3d::toVec4(c)}};
         ClipVtx poly[4];
-        bool polyEdge[4];  // ребро poly[i] -> poly[i+1] — исходное ребро треугольника
+        bool polyEdge[4];
         int cnt = 0;
         for (int i = 0; i < 3; ++i) {
             const ClipVtx& p = in[i];
@@ -190,10 +185,10 @@ FrameStats drawMesh(Framebuffer& fb, const View& v, const mesh::Mesh& mesh, cons
             const double dp = nearDist(p.c), dq = nearDist(q.c);
             if (dp >= 0) {
                 poly[cnt] = p;
-                polyEdge[cnt++] = true;  // от p идёт (часть) исходного ребра pq
+                polyEdge[cnt++] = true;
                 if (dq < 0) {
                     poly[cnt] = {lerp4(p.c, q.c, dp / (dp - dq))};
-                    polyEdge[cnt++] = false;  // дальше — новое ребро по ближней плоскости
+                    polyEdge[cnt++] = false;
                 }
             } else if (dq >= 0) {
                 poly[cnt] = {lerp4(p.c, q.c, dp / (dp - dq))};
@@ -207,9 +202,9 @@ FrameStats drawMesh(Framebuffer& fb, const View& v, const mesh::Mesh& mesh, cons
         for (int i = 1; i + 1 < cnt; ++i) {
             int mask = 0;
             if (opt.edges) {
-                if (i == 1 && polyEdge[0]) mask |= 1;           // 0 -> 1
-                if (polyEdge[i]) mask |= 2;                      // i -> i+1
-                if (i + 1 == cnt - 1 && polyEdge[cnt - 1]) mask |= 4;  // last -> 0
+                if (i == 1 && polyEdge[0]) mask |= 1;
+                if (polyEdge[i]) mask |= 2;
+                if (i + 1 == cnt - 1 && polyEdge[cnt - 1]) mask |= 4;
             }
             rasterTriangle(fb, s[0], s[i], s[i + 1], col, edgeCol, mask, opt.zbuffer);
         }
@@ -229,11 +224,11 @@ void drawLine3D(Framebuffer& fb, const View& v, Vec3 a, Vec3 b, uint32_t color, 
     const double dx = q.x - p.x, dy = q.y - p.y;
     const double len = std::hypot(dx, dy);
     const int steps = std::max(1, static_cast<int>(std::ceil(std::max(std::fabs(dx), std::fabs(dy)))));
-    if (steps > 20000) return;  // защита от вырожденных проекций
+    if (steps > 20000) return;
     const bool steep = std::fabs(dy) > std::fabs(dx);
     for (int i = 0; i <= steps; ++i) {
         const double t = static_cast<double>(i) / steps;
-        if (dash > 0 && static_cast<long long>(std::floor(t * len / dash)) % 2 == 1) continue;  // пунктир
+        if (dash > 0 && static_cast<long long>(std::floor(t * len / dash)) % 2 == 1) continue;
         const double x = p.x + dx * t, y = p.y + dy * t, z = p.z + (q.z - p.z) * t;
         const int ix = static_cast<int>(std::floor(x)), iy = static_cast<int>(std::floor(y));
         if (ix < -thickness || iy < -thickness || ix >= fb.width + thickness || iy >= fb.height + thickness) continue;
@@ -276,15 +271,15 @@ View makeOrthoView(ViewKind kind, int width, int height, const std::vector<Vec3>
     v.perspective = false;
     Vec3 up;
     switch (kind) {
-        case ViewKind::Top:  // вид сверху: проекция на Oxz, X вправо, Z вниз
+        case ViewKind::Top:
             v.toViewer = {0, 1, 0}; up = {0, 0, -1};
             v.hAxis = 0; v.hSign = 1; v.vAxis = 2; v.vSign = -1;
             break;
-        case ViewKind::Side:  // вид слева: проекция на Oyz, Z вправо, Y вверх
+        case ViewKind::Side:
             v.toViewer = {-1, 0, 0}; up = {0, 1, 0};
             v.hAxis = 2; v.hSign = 1; v.vAxis = 1; v.vSign = 1;
             break;
-        default:  // вид спереди: проекция на Oxy, X вправо, Y вверх
+        default:
             v.toViewer = {0, 0, 1}; up = {0, 1, 0};
             v.hAxis = 0; v.hSign = 1; v.vAxis = 1; v.vSign = 1;
             break;
@@ -298,11 +293,10 @@ View makeOrthoView(ViewKind kind, int width, int height, const std::vector<Vec3>
     }
     if (fit.empty()) { hMin = vMin = -100; hMax = vMax = 100; }
     const double rangeH = std::max(hMax - hMin, 1e-6), rangeV = std::max(vMax - vMin, 1e-6);
-    const double ppu = std::min(v.width / (rangeH * 1.18), v.height / (rangeV * 1.18));  // одинаковый масштаб по осям
+    const double ppu = std::min(v.width / (rangeH * 1.18), v.height / (rangeV * 1.18));
     const double cH = (hMin + hMax) / 2, cV = (vMin + vMax) / 2;
     const double halfW = v.width / ppu / 2, halfH = v.height / ppu / 2;
 
-    // Центр в мировых координатах (на плоскости вида) и камера на расстоянии D
     Vec3 center;
     auto setComp = [](Vec3& p, int i, double val) { (i == 0 ? p.x : (i == 1 ? p.y : p.z)) = val; };
     setComp(center, v.hAxis, cH * v.hSign);
@@ -318,4 +312,4 @@ View makeOrthoView(ViewKind kind, int width, int height, const std::vector<Vec3>
     return v;
 }
 
-}  // namespace render
+}

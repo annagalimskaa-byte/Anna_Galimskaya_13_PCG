@@ -13,28 +13,23 @@ namespace {
 
 double cross2(Vec3 a, Vec3 b) { return a.x * b.y - a.y * b.x; }
 
-// Знак ориентированной площади треугольника abc в плоскости Oxy (×2)
 double orient(Vec3 a, Vec3 b, Vec3 c) { return cross2(b - a, c - a); }
 
-// Строгое пересечение отрезков ab и cd (касания концами не считаются)
 bool segmentsCross(Vec3 a, Vec3 b, Vec3 c, Vec3 d) {
     const double d1 = orient(a, b, c), d2 = orient(a, b, d);
     const double d3 = orient(c, d, a), d4 = orient(c, d, b);
     return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
 }
 
-// Точка p внутри треугольника abc (CCW) или на его границе
 bool pointInTriangle(Vec3 p, Vec3 a, Vec3 b, Vec3 c, double eps) {
     return orient(a, b, p) >= -eps && orient(b, c, p) >= -eps && orient(c, a, p) >= -eps;
 }
 
 double distance2(Vec3 a, Vec3 b) { return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y); }
 
-}  // namespace
+}
 
 double starInscribedRadius(int n, double rOut, double rIn) {
-    // Ребро звезды соединяет вершину (rOut, 0) и вершину rIn·(cos π/n, sin π/n).
-    // Расстояние от начала координат до прямой: |P1 × P2| / |P2 − P1|.
     const double t = m3d::kPi / n;
     const double num = rOut * rIn * std::sin(t);
     const double den = std::sqrt(rOut * rOut + rIn * rIn - 2.0 * rOut * rIn * std::cos(t));
@@ -51,11 +46,9 @@ Params paramsFromSeed(int seed, int layers) {
     p.rOut = 100.0;
     p.rIn = rnd.uniform(55.0, 75.0);
     p.rInscribed = starInscribedRadius(p.N, p.rOut, p.rIn);
-    // rHole < 0.6·Rin выполняется автоматически: rInscribed < Rin
     p.rHole = rnd.uniform(0.35, 0.55) * p.rInscribed;
     p.outerPhaseDeg = rnd.uniform(0.0, 180.0 / p.N);
     p.holePhaseDeg = rnd.uniform(0.0, 360.0 / p.M);
-    // Смещение: |Δ| + rHole ≤ 0.85·rInscribed — отверстие гарантированно не пересекает внешний контур
     const double maxShift = 0.85 * p.rInscribed - p.rHole;
     const double shift = rnd.uniform(0.35, 1.0) * maxShift;
     const double phi = rnd.uniform(0.0, 2.0 * m3d::kPi);
@@ -69,10 +62,10 @@ Params paramsFromSeed(int seed, int layers) {
 
 std::vector<Vec3> outerContour(const Params& p) {
     std::vector<Vec3> pts;
-    const int count = 2 * p.N;  // 2N равных секторов
+    const int count = 2 * p.N;
     for (int i = 0; i < count; ++i) {
         const double a = m3d::deg2rad(p.outerPhaseDeg) + 2.0 * m3d::kPi * i / count;
-        const double r = (i % 2 == 0) ? p.rOut : p.rIn;  // радиус чередуется Rout / Rin
+        const double r = (i % 2 == 0) ? p.rOut : p.rIn;
         pts.push_back({r * std::cos(a), r * std::sin(a), 0.0});
     }
     return pts;
@@ -94,8 +87,6 @@ std::vector<std::array<int, 3>> triangulateWithHole(const std::vector<Vec3>& out
     std::vector<Vec3> P(outer);
     P.insert(P.end(), hole.begin(), hole.end());
 
-    // 1. «Мост» между отверстием и внешним контуром: самая правая вершина отверстия h
-    //    соединяется с ближайшей видимой из неё вершиной внешнего контура v.
     int h = 0;
     for (int k = 1; k < m; ++k)
         if (hole[k].x > hole[h].x) h = k;
@@ -120,18 +111,15 @@ std::vector<std::array<int, 3>> triangulateWithHole(const std::vector<Vec3>& out
         if (visible) { v = cand; break; }
     }
 
-    // 2. Один «склеенный» многоугольник: outer[0..v], отверстие по часовой от h до h, outer[v..n-1]
     std::vector<int> poly;
     for (int i = 0; i <= v; ++i) poly.push_back(i);
     for (int s = 0; s <= m; ++s) poly.push_back(n + ((h - s) % m + m) % m);
     for (int i = v; i < n; ++i) poly.push_back(i);
 
-    // Масштаб для эпсилон-сравнений
     double scale = 0;
     for (const auto& q : P) scale = std::max(scale, std::max(std::fabs(q.x), std::fabs(q.y)));
     const double eps = 1e-9 * std::max(1.0, scale * scale);
 
-    // 3. Отрезание ушей
     std::vector<std::array<int, 3>> tris;
     while (poly.size() > 3) {
         const int cnt = static_cast<int>(poly.size());
@@ -142,7 +130,7 @@ std::vector<std::array<int, 3>> triangulateWithHole(const std::vector<Vec3>& out
             const int a = poly[(i + cnt - 1) % cnt], b = poly[i], c = poly[(i + 1) % cnt];
             const double area = orient(P[a], P[b], P[c]);
             if (area > bestConvex) { bestConvex = area; bestAt = i; }
-            if (area <= eps) continue;  // вогнутая или вырожденная вершина — не ухо
+            if (area <= eps) continue;
             bool empty = true;
             for (int j = 0; j < cnt && empty; ++j) {
                 const int q = poly[j];
@@ -151,7 +139,7 @@ std::vector<std::array<int, 3>> triangulateWithHole(const std::vector<Vec3>& out
             }
             if (empty) { earAt = i; break; }
         }
-        if (earAt < 0) earAt = bestAt;  // защита от зацикливания при погрешностях
+        if (earAt < 0) earAt = bestAt;
         const int a = poly[(earAt + cnt - 1) % cnt], b = poly[earAt], c = poly[(earAt + 1) % cnt];
         if (orient(P[a], P[b], P[c]) > eps) tris.push_back({a, b, c});
         poly.erase(poly.begin() + earAt);
@@ -171,8 +159,6 @@ Mesh buildMesh(const Params& p) {
     const int L = std::max(1, p.layers);
     mesh.ringSize = ring;
 
-    // Вершины: слой j = 0..L. Слой 0 — передняя грань (Z = 0), слой L — задняя (Z = H):
-    // масштаб ktaper и поворот на αtwist. Промежуточные слои — линейная интерполяция (детализация).
     for (int j = 0; j <= L; ++j) {
         const double t = static_cast<double>(j) / L;
         const double s = 1.0 + t * (p.taper - 1.0);
@@ -189,23 +175,19 @@ Mesh buildMesh(const Params& p) {
     };
 
     for (int j = 0; j < L; ++j) {
-        // Внешние стенки: четырёхугольник неплоский из-за закрутки -> 2 треугольника
         for (int i = 0; i < n; ++i) {
             add(O(j, i), O(j, i + 1), O(j + 1, i + 1), FaceGroup::OuterWall);
             add(O(j, i), O(j + 1, i + 1), O(j + 1, i), FaceGroup::OuterWall);
         }
-        // Стенки отверстия: обратный порядок обхода — нормали смотрят к оси отверстия
         for (int k = 0; k < m; ++k) {
             add(Hh(j, k), Hh(j + 1, k + 1), Hh(j, k + 1), FaceGroup::HoleWall);
             add(Hh(j, k), Hh(j + 1, k), Hh(j + 1, k + 1), FaceGroup::HoleWall);
         }
     }
-    // Торцевые крышки: передняя (нормаль −Z) — обратный обход, задняя (нормаль +Z) — прямой.
     const auto caps = triangulateWithHole(outer, hole);
     for (const auto& t : caps) add(t[0], t[2], t[1], FaceGroup::FrontCap);
     for (const auto& t : caps) add(L * ring + t[0], L * ring + t[1], L * ring + t[2], FaceGroup::BackCap);
 
-    // Уникальные рёбра
     const long long V = static_cast<long long>(mesh.vertices.size());
     std::map<long long, int> seen;
     for (const auto& t : mesh.triangles)
@@ -239,7 +221,7 @@ void computeChecksum(const Mesh& mesh, const m3d::Mat4& model, Vec3& centroid, d
     w.reserve(mesh.vertices.size());
     Vec3 sum;
     for (const auto& v : mesh.vertices) {
-        const Vec3 p = m3d::perspectiveDivide(model * v);  // после текущей матрицы M
+        const Vec3 p = m3d::perspectiveDivide(model * v);
         w.push_back(p);
         sum = sum + p;
     }
@@ -254,11 +236,11 @@ Stats computeStats(const Mesh& mesh, const m3d::Mat4& model) {
     s.V = static_cast<int>(mesh.vertices.size());
     s.E = static_cast<int>(mesh.edges.size());
     s.F = static_cast<int>(mesh.triangles.size());
-    s.euler = s.V - s.E + s.F;  // для тора (g = 1) должно быть 2 − 2g = 0
+    s.euler = s.V - s.E + s.F;
     s.closedManifold = isClosedManifold(mesh);
     s.det = m3d::det3(model);
     computeChecksum(mesh, model, s.centroid, s.area);
     return s;
 }
 
-}  // namespace mesh
+}
