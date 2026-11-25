@@ -1,4 +1,3 @@
-// Рендер 4 видов без GUI в файл PPM (для проверки и скриншотов): render_demo seed out.ppm [sx]
 #include <cstdio>
 #include <cstdlib>
 #include "mesh.h"
