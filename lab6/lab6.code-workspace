@@ -1,0 +1,41 @@
+{
+    "folders": [
+        { "name": "Лабораторная 6 (C++ / Qt)", "path": "." },
+        { "name": "Лабораторная 6 (веб-версия)", "path": "../lab6_web" }
+    ],
+    "settings": {
+        "cmake.sourceDirectory": "${workspaceFolder:Лабораторная 6 (C++ / Qt)}",
+        "cmake.useCMakePresets": "always",
+        "cmake.configureOnOpen": true,
+        "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+        "C_Cpp.default.cppStandard": "c++17",
+        "files.associations": { "*.h": "cpp" }
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "Lab6 (macOS, lldb)",
+                "type": "cppdbg",
+                "request": "launch",
+                "program": "${command:cmake.launchTargetPath}",
+                "cwd": "${workspaceFolder:Лабораторная 6 (C++ / Qt)}",
+                "MIMode": "lldb"
+            },
+            {
+                "name": "Lab6 (Windows, MinGW gdb)",
+                "type": "cppdbg",
+                "request": "launch",
+                "program": "${command:cmake.launchTargetPath}",
+                "cwd": "${workspaceFolder:Лабораторная 6 (C++ / Qt)}",
+                "MIMode": "gdb"
+            }
+        ]
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-vscode.cpptools",
+            "ms-vscode.cmake-tools"
+        ]
+    }
+}

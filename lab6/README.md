@@ -225,16 +225,21 @@ R·T → (112.583, 65, 0) — сначала сдвинули, потом пов
 
 ## Сборка и запуск в Visual Studio Code
 
+Проект открывается двойным щелчком по файлу **`lab6.code-workspace`** (или *File → Open Workspace from File…*):
+в окне VS Code появятся две папки — C++/Qt-проект и веб-версия. Настройки сборки лежат в
+**`CMakePresets.json`** (пресеты `macos`, `windows`, `linux`), их понимают и VS Code (CMake Tools),
+и Visual Studio 2022, и CLion.
+
 ### macOS
-1. Установить Qt и CMake: `brew install qt cmake` (путь `/opt/homebrew/opt/qt` уже прописан в `CMakeLists.txt`).
-2. В VS Code установить расширения **C/C++** и **CMake Tools** (VS Code сам предложит их из `.vscode/extensions.json`).
-3. *File → Open Folder…* → папка `lab6`. CMake Tools сконфигурирует проект (выбрать компилятор Clang).
-4. В строке состояния выбрать цель **`lab6_3d_part`** и нажать ▶ (Run) — откроется окно приложения.
+1. Установить Qt и CMake: `brew install qt cmake` (путь `/opt/homebrew/opt/qt` уже прописан в пресете `macos`).
+2. В VS Code установить расширения **C/C++** и **CMake Tools** (VS Code сам предложит их при открытии).
+3. Открыть `lab6.code-workspace`, в строке состояния выбрать пресет **macOS (Homebrew Qt, Release)**.
+4. Выбрать цель **`lab6_3d_part`** и нажать ▶ (Run) — откроется окно приложения.
 
 Из терминала:
 ```bash
 cd lab6
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --preset macos               # или: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 open build/lab6_3d_part.app        # macOS
 ./build/lab6_tests                 # модульные тесты
@@ -245,6 +250,10 @@ open build/lab6_3d_part.app        # macOS
 2. В `.vscode/settings.json` в `cmake.configureSettings` добавить
    `"CMAKE_PREFIX_PATH": "C:/Qt/6.8.0/mingw_64"` (свой путь к Qt).
 3. Открыть папку `lab6`, выбрать комплект MinGW, цель `lab6_3d_part`, ▶.
+
+**Visual Studio 2022 (Windows):** *File → Open → Folder…* → папка `lab6`. Visual Studio прочитает
+`CMakePresets.json`; перед этим задайте переменную среды `QTDIR` (например `C:\Qt\6.8.0\msvc2022_64`),
+выберите пресет **windows** и цель `lab6_3d_part.exe`, затем *Debug → Start* (F5).
 
 Без Qt собираются ядро, тесты (`lab6_tests`) и `lab6_render_demo` (рендер 4 видов в файл PPM без GUI).
 
@@ -270,6 +279,8 @@ tests/               модульные тесты
 tools/render_demo.cpp  рендер без GUI (проверка и скриншоты)
 docs/screenshots/    скриншоты для README
 .vscode/             настройки VS Code (CMake Tools, отладка)
+lab6.code-workspace  рабочая область VS Code (C++ проект + веб-версия)
+CMakePresets.json    пресеты сборки для VS Code / Visual Studio 2022 / CLion
 ../lab6_web/         веб-версия (index.html, math3d.js, mesh.js, renderer.js — тот же алгоритм)
 ```
 

@@ -1,0 +1,44 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+    "configurePresets": [
+        {
+            "name": "macos",
+            "displayName": "macOS (Homebrew Qt, Release)",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_PREFIX_PATH": "/opt/homebrew/opt/qt;/usr/local/opt/qt"
+            },
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" }
+        },
+        {
+            "name": "windows",
+            "displayName": "Windows (Visual Studio 2022 / MSVC, Release)",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "architecture": { "value": "x64", "strategy": "external" },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_PREFIX_PATH": "$env{QTDIR}"
+            },
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+        },
+        {
+            "name": "linux",
+            "displayName": "Linux (Release)",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" },
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+        }
+    ],
+    "buildPresets": [
+        { "name": "macos",   "configurePreset": "macos",   "configuration": "Release" },
+        { "name": "windows", "configurePreset": "windows", "configuration": "Release" },
+        { "name": "linux",   "configurePreset": "linux",   "configuration": "Release" }
+    ],
+    "testPresets": [
+        { "name": "macos",   "configurePreset": "macos",   "configuration": "Release", "output": { "outputOnFailure": true } },
+        { "name": "windows", "configurePreset": "windows", "configuration": "Release", "output": { "outputOnFailure": true } },
+        { "name": "linux",   "configurePreset": "linux",   "configuration": "Release", "output": { "outputOnFailure": true } }
+    ]
+}
