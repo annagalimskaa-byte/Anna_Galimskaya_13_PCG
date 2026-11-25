@@ -1,10 +1,8 @@
-// Процедурная генерация детали по Seed (порт lab6/src/mesh.cpp — те же числа, что и в C++ версии).
 'use strict';
 
 const MESH = (() => {
   const M = (typeof M3D !== 'undefined') ? M3D : require('./math3d.js');
 
-  // Random(Seed) — Mulberry32, 32-битная арифметика как в C++ (uint32_t)
   class Random {
     constructor(seed) { this.state = seed | 0; }
     next() {
@@ -33,10 +31,10 @@ const MESH = (() => {
     p.rOut = 100;
     p.rIn = rnd.uniform(55, 75);
     p.rInscribed = starInscribedRadius(p.N, p.rOut, p.rIn);
-    p.rHole = rnd.uniform(0.35, 0.55) * p.rInscribed;          // < 0.6·Rin
+    p.rHole = rnd.uniform(0.35, 0.55) * p.rInscribed;
     p.outerPhaseDeg = rnd.uniform(0, 180 / p.N);
     p.holePhaseDeg = rnd.uniform(0, 360 / p.M);
-    const maxShift = 0.85 * p.rInscribed - p.rHole;            // отверстие не пересекает внешний контур
+    const maxShift = 0.85 * p.rInscribed - p.rHole;
     const shift = rnd.uniform(0.35, 1) * maxShift;
     const phi = rnd.uniform(0, 2 * Math.PI);
     p.dx = shift * Math.cos(phi);
@@ -48,10 +46,10 @@ const MESH = (() => {
   }
 
   function outerContour(p) {
-    const pts = [], count = 2 * p.N;                // 2N равных секторов
+    const pts = [], count = 2 * p.N;
     for (let i = 0; i < count; i++) {
       const a = M.deg2rad(p.outerPhaseDeg) + 2 * Math.PI * i / count;
-      const r = i % 2 === 0 ? p.rOut : p.rIn;       // радиус чередуется Rout / Rin
+      const r = i % 2 === 0 ? p.rOut : p.rIn;
       pts.push(M.vec3(r * Math.cos(a), r * Math.sin(a), 0));
     }
     return pts;
@@ -75,7 +73,6 @@ const MESH = (() => {
     orient(a, b, p) >= -eps && orient(b, c, p) >= -eps && orient(c, a, p) >= -eps;
   const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 
-  // Триангуляция многоугольника с дыркой: «мост» + отрезание ушей (Ear Clipping)
   function triangulateWithHole(outer, hole) {
     const n = outer.length, m = hole.length;
     const P = outer.concat(hole);
@@ -116,7 +113,7 @@ const MESH = (() => {
         const a = poly[(i + cnt - 1) % cnt], b = poly[i], c = poly[(i + 1) % cnt];
         const area = orient(P[a], P[b], P[c]);
         if (area > bestConvex) { bestConvex = area; bestAt = i; }
-        if (area <= eps) continue;                 // вогнутая вершина — не ухо
+        if (area <= eps) continue;
         let empty = true;
         for (let j = 0; j < cnt && empty; j++) {
           const q = poly[j];
@@ -150,11 +147,11 @@ const MESH = (() => {
     const add = (a, b, c, g) => { mesh.triangles.push([a, b, c]); mesh.groups.push(g); };
 
     for (let j = 0; j < L; j++) {
-      for (let i = 0; i < n; i++) {             // внешние стенки: 2 треугольника на неплоский четырёхугольник
+      for (let i = 0; i < n; i++) {
         add(O(j, i), O(j, i + 1), O(j + 1, i + 1), GROUP.OuterWall);
         add(O(j, i), O(j + 1, i + 1), O(j + 1, i), GROUP.OuterWall);
       }
-      for (let k = 0; k < m; k++) {             // стенки отверстия: обратный обход, нормали к оси отверстия
+      for (let k = 0; k < m; k++) {
         add(H(j, k), H(j + 1, k + 1), H(j, k + 1), GROUP.HoleWall);
         add(H(j, k), H(j + 1, k), H(j + 1, k + 1), GROUP.HoleWall);
       }

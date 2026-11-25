@@ -200,7 +200,6 @@
   const num = (v, p = 3) => { if (Math.abs(v) < 0.5 * Math.pow(10, -p)) v = 0; return v.toFixed(p); };
   const val = (id) => { const x = parseFloat($(id).value); return Number.isFinite(x) ? x : 0; };
 
-  // ---------- Сцена ----------
   const scene = {
     mesh: null, stats: null, model: M.identity(), world: [], history: [],
     p1: M.vec3(80, -120, 20), p2: M.vec3(80, 120, 60),
@@ -229,7 +228,6 @@
     updateWorld();
     refreshAll();
   }
-  // M_new = Op · M_old
   function apply(op, text) {
     scene.model = M.mulMat(op, scene.model);
     if (text) scene.history.push(text);
@@ -246,7 +244,6 @@
     return pts;
   }
 
-  // ---------- Окна просмотра ----------
   const AXIS_COLOR = ['#cd3232', '#28963c', '#285ad2'], AXIS_NAME = ['X', 'Y', 'Z'];
   const TITLES = ['Перспектива (LookAt + P·V·M)  ·  ЛКМ — облёт, колесо — приближение',
                   'Вид спереди — проекция на Oxy', 'Вид сверху — проекция на Oxz', 'Вид слева — проекция на Oyz'];
@@ -364,7 +361,7 @@
       R.drawLine3D(vw.fb, v, M.vec3(), M.vec3(0, L, 0), R.rgba(40, 150, 60), R.rgba(40, 150, 60, 70), 0, 2);
       R.drawLine3D(vw.fb, v, M.vec3(), M.vec3(0, 0, L), R.rgba(40, 90, 210), R.rgba(40, 90, 210, 70), 0, 2);
     }
-    if (scene.showAxisLine) {   // ось P1P2 — пунктир, закрытые деталью участки бледнее
+    if (scene.showAxisLine) {
       const d = M.sub(scene.p2, scene.p1);
       R.drawLine3D(vw.fb, v, M.sub(scene.p1, M.mul(d, 0.6)), M.add(scene.p2, M.mul(d, 0.6)),
                    R.rgba(214, 30, 140), R.rgba(214, 30, 140, 80), 9 * dpr, Math.max(2, Math.round(2 * dpr)));
@@ -382,7 +379,6 @@
     vw.ms = performance.now() - t0;
   }
 
-  // ---------- Панель ----------
   function refreshInfo() {
     const p = scene.mesh.params, st = scene.stats;
     $('params').innerHTML =
@@ -422,7 +418,6 @@
   let frameRequested = false;
   function schedule() { if (!frameRequested) { frameRequested = true; requestAnimationFrame(frame); } }
 
-  // ---------- Анимация вокруг P1P2 ----------
   let animating = false, lastT = 0, animAngle = 0;
   function frame(t) {
     frameRequested = false;
@@ -522,7 +517,6 @@
     refreshAll();
   };
 
-  // ---------- Мышь: орбитальный облёт и приближение ----------
   const pc = $('v0');
   let drag = null;
   pc.addEventListener('pointerdown', (e) => {

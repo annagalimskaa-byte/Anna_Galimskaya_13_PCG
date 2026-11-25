@@ -1,5 +1,3 @@
-// Векторы и матрицы 4x4, написанные вручную (порт lab6/src/math3d.cpp).
-// Векторы-столбцы: v' = M · v. Матрица хранится построчно: m[r * 4 + c].
 'use strict';
 
 const M3D = (() => {
@@ -17,7 +15,6 @@ const M3D = (() => {
   const length = (a) => Math.sqrt(dot(a, a));
   const normalize = (a) => { const l = length(a); return l > 1e-12 ? mul(a, 1 / l) : vec3(); };
 
-  // Однородные координаты [x, y, z, w]
   const vec4 = (x = 0, y = 0, z = 0, w = 1) => ({ x, y, z, w });
   const toVec4 = (p, w = 1) => vec4(p.x, p.y, p.z, w);
   const toVec3 = (p) => vec3(p.x, p.y, p.z);
@@ -36,7 +33,6 @@ const M3D = (() => {
       }
     return r;
   }
-  // Произведение нескольких матриц слева направо: chain(A, B, C) = A·B·C
   const chain = (...ms) => ms.reduce((acc, m) => mulMat(acc, m));
 
   function mulVec(a, v) {
@@ -63,7 +59,6 @@ const M3D = (() => {
     return d;
   }
 
-  // --- Базовые аффинные преобразования ---
   function translation(dx, dy, dz) {
     if (typeof dx === 'object') ({ x: dx, y: dy, z: dz } = dx);
     const r = identity(); r[3] = dx; r[7] = dy; r[11] = dz; return r;
@@ -82,7 +77,6 @@ const M3D = (() => {
     r[0] = c; r[1] = -s; r[4] = s; r[5] = c; return r;
   }
 
-  // Матрица Родрига: R = cos θ·E + (1 − cos θ)·u·uᵀ + sin θ·[u]×
   function rotationAxisOrigin(u, deg) {
     u = normalize(u);
     const c = Math.cos(deg2rad(deg)), s = Math.sin(deg2rad(deg)), t = 1 - c;
@@ -92,12 +86,10 @@ const M3D = (() => {
     r[8] = t * x * z - s * y; r[9] = t * y * z + s * x; r[10] = c + t * z * z;
     return r;
   }
-  // Поворот вокруг оси P1P2: T(P1) · R_u(θ) · T(−P1)
   function rotationAroundLine(p1, p2, deg) {
     const u = normalize(sub(p2, p1));
     return chain(translation(p1), rotationAxisOrigin(u, deg), translation(neg(p1)));
   }
-  // То же через совмещение оси с Oz: T(P1)·Rx⁻¹·Ry⁻¹·Rz(θ)·Ry·Rx·T(−P1)
   function rotationAroundLineComposite(p1, p2, deg) {
     const u = normalize(sub(p2, p1)), a = u.x, b = u.y, c = u.z;
     const d = Math.sqrt(b * b + c * c);
@@ -109,11 +101,10 @@ const M3D = (() => {
     return chain(translation(p1), transpose(rx), transpose(ry), rotationZ(deg), ry, rx, translation(neg(p1)));
   }
 
-  // --- Камера ---
   function lookAt(eye, target, up) {
-    const f = normalize(sub(target, eye));   // Forward
-    const r = normalize(cross(f, up));       // Right
-    const u = cross(r, f);                   // Up
+    const f = normalize(sub(target, eye));
+    const r = normalize(cross(f, up));
+    const u = cross(r, f);
     const v = identity();
     v[0] = r.x;  v[1] = r.y;  v[2] = r.z;  v[3] = -dot(r, eye);
     v[4] = u.x;  v[5] = u.y;  v[6] = u.z;  v[7] = -dot(u, eye);

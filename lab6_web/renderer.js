@@ -1,5 +1,3 @@
-// Программный конвейер P·V·M·v -> деление на w -> NDC -> пиксели; Z-буфер, Back-Face Culling, Ламберт.
-// Порт lab6/src/renderer.cpp. Цвет в буфере: 0xAABBGGRR (порядок байтов ImageData).
 'use strict';
 
 const RENDER = (() => {
@@ -20,11 +18,11 @@ const RENDER = (() => {
   const KIND = { Perspective: 0, Front: 1, Top: 2, Side: 3 };
 
   const directionToViewer = (v, p) => (v.perspective ? M.sub(v.eye, p) : v.toViewer);
-  const nearDist = (c) => c.z + c.w;    // ближняя плоскость: z_clip ≥ −w
+  const nearDist = (c) => c.z + c.w;
   const lerp4 = (a, b, t) => M.vec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t);
 
   function toScreen(v, clip) {
-    const ndc = M.perspectiveDivide(clip);                    // перспективное деление на w
+    const ndc = M.perspectiveDivide(clip);
     return { x: (ndc.x + 1) * 0.5 * v.width, y: (1 - ndc.y) * 0.5 * v.height, z: ndc.z };
   }
 
@@ -70,7 +68,7 @@ const RENDER = (() => {
         const z = ba * a.z + bb * b.z + bc * c.z;
         const idx = y * W + x;
         if (ztest) {
-          if (z >= depth[idx]) continue;           // тест глубины
+          if (z >= depth[idx]) continue;
           depth[idx] = z;
         }
         let out = col;
@@ -94,7 +92,6 @@ const RENDER = (() => {
 
   const transformVertices = (mesh, model) => mesh.vertices.map((v) => M.perspectiveDivide(M.mulVec(model, v)));
 
-  // При det(M) < 0 порядок обхода инвертирован — нормаль разворачивается
   function faceNormal(a, b, c, det) {
     const n = M.cross(M.sub(b, a), M.sub(c, a));
     return det < 0 ? M.neg(n) : n;
@@ -109,7 +106,6 @@ const RENDER = (() => {
       const tri = mesh.triangles[t];
       const a = world[tri[0]], b = world[tri[1]], c = world[tri[2]];
       const n = faceNormal(a, b, c, det);
-      // Back-Face Culling: N · V_cam ≤ 0
       if (opt.cull && M.dot(n, directionToViewer(v, a)) <= 0) { st.culled++; continue; }
       if (!opt.fill) {
         drawLine3D(fb, v, a, b, wireCol, 0, 0, 1);
@@ -118,7 +114,6 @@ const RENDER = (() => {
         st.drawn++;
         continue;
       }
-      // Ламберт: I = ambient + (1 − ambient) · max(0, N · L)
       const base = COLORS[opt.groupColors ? mesh.groups[t] : 0];
       let k = 1;
       if (opt.lighting) {
@@ -128,7 +123,6 @@ const RENDER = (() => {
       }
       const col = shade(base, k), edgeCol = shade(base, k * 0.45);
 
-      // Отсечение по ближней плоскости в пространстве отсечения
       const inp = [M.mulVec(v.projView, M.toVec4(a)), M.mulVec(v.projView, M.toVec4(b)), M.mulVec(v.projView, M.toVec4(c))];
       const poly = [], polyEdge = [];
       for (let i = 0; i < 3; i++) {
@@ -170,7 +164,7 @@ const RENDER = (() => {
     const steep = Math.abs(dy) > Math.abs(dx);
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
-      if (dash > 0 && Math.floor(t * len / dash) % 2 === 1) continue;   // пунктир
+      if (dash > 0 && Math.floor(t * len / dash) % 2 === 1) continue;
       const x = p.x + dx * t, y = p.y + dy * t, z = p.z + (q.z - p.z) * t;
       const ix = Math.floor(x), iy = Math.floor(y);
       if (ix < -thickness || iy < -thickness || ix >= fb.width + thickness || iy >= fb.height + thickness) continue;
@@ -186,7 +180,6 @@ const RENDER = (() => {
     }
   }
 
-  // Орбитальная камера: Eye на сфере вокруг Target
   function cameraEye(cam) {
     const y = M.deg2rad(cam.yawDeg), p = M.deg2rad(cam.pitchDeg);
     return M.add(cam.target, M.mul(M.vec3(Math.cos(p) * Math.sin(y), Math.sin(p), Math.cos(p) * Math.cos(y)), cam.distance));
@@ -204,13 +197,13 @@ const RENDER = (() => {
   function makeOrthoView(kind, width, height, fit) {
     const v = { kind, width: Math.max(1, width), height: Math.max(1, height), perspective: false };
     let up;
-    if (kind === KIND.Top) {          // вид сверху: Oxz, X вправо, Z вниз
+    if (kind === KIND.Top) {
       v.toViewer = M.vec3(0, 1, 0); up = M.vec3(0, 0, -1);
       v.hAxis = 0; v.hSign = 1; v.vAxis = 2; v.vSign = -1;
-    } else if (kind === KIND.Side) {  // вид слева: Oyz, Z вправо, Y вверх
+    } else if (kind === KIND.Side) {
       v.toViewer = M.vec3(-1, 0, 0); up = M.vec3(0, 1, 0);
       v.hAxis = 2; v.hSign = 1; v.vAxis = 1; v.vSign = 1;
-    } else {                          // вид спереди: Oxy, X вправо, Y вверх
+    } else {
       v.toViewer = M.vec3(0, 0, 1); up = M.vec3(0, 1, 0);
       v.hAxis = 0; v.hSign = 1; v.vAxis = 1; v.vSign = 1;
     }
